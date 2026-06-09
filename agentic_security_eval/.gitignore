@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Virtual env / tooling caches
+.venv/
+.pytest_cache/
+
+# Evaluator runtime output (later phases)
+reports/
