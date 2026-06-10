@@ -21,6 +21,17 @@ VALID_DECISION = {
     "explanation": "unsafe tool call",
     "recommendation": "gate tools",
 }
+REQUIRED_KEYS = [
+    "is_vulnerable",
+    "category",
+    "severity",
+    "confidence",
+    "exploitability_score",
+    "evidence_ids",
+    "explanation",
+    "recommendation",
+]
+FORBIDDEN_ALIAS_KEYS = {"vulnerable", "rationale", "risk", "score", "evidence"}
 
 
 class FakeTransport:
@@ -167,8 +178,14 @@ def test_response_format_json_schema_is_strict_and_excludes_metadata_requirement
     assert response_format["type"] == "json_schema"
     assert response_format["json_schema"]["strict"] is True
     assert schema["additionalProperties"] is False
+    assert schema["required"] == REQUIRED_KEYS
     assert "metadata" not in schema["required"]
     assert schema["properties"]["category"]["enum"] == ["ASI01", "ASI02", "ASI06"]
+    assert schema["properties"]["confidence"]["minimum"] == 0
+    assert schema["properties"]["confidence"]["maximum"] == 1
+    assert schema["properties"]["exploitability_score"]["minimum"] == 0
+    assert schema["properties"]["exploitability_score"]["maximum"] == 1
+    assert not (FORBIDDEN_ALIAS_KEYS & set(schema["properties"]))
 
 
 def test_default_transport_requires_api_key(monkeypatch):
