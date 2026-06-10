@@ -14,8 +14,9 @@ from pathlib import Path
 from agentic_security_eval.adapters.python_workflow import PythonWorkflowAdapter
 from agentic_security_eval.attacks.generator import AttackGenerator
 from agentic_security_eval.config.loader import load_target_config
+from agentic_security_eval.converters.raw_event_log import load_raw_agent_log, raw_log_to_trace_input
 from agentic_security_eval.core.enums import ASICategory
-from agentic_security_eval.core.errors import AgenticSecurityEvalError
+from agentic_security_eval.core.errors import AgenticSecurityEvalError, ReportError
 from agentic_security_eval.evaluator.runner import EvaluatorRunner
 from agentic_security_eval.evaluator.trace_runner import TraceEvaluationRunner
 from agentic_security_eval.oracle.fake_judge import FakeJudgeProvider
@@ -31,7 +32,12 @@ def main(argv: list[str] | None = None) -> int:
     # Config entrypoints (e.g. examples.fake_targets:...) are module paths
     # resolved relative to the current working directory.
     _ensure_cwd_importable()
-    handlers = {"eval": _run_eval, "eval-trace": _run_eval_trace}
+    handlers = {
+        "eval": _run_eval,
+        "eval-trace": _run_eval_trace,
+        "convert-trace": _run_convert_trace,
+        "eval-raw-trace": _run_eval_raw_trace,
+    }
     try:
         return handlers[args.command](args)
     except AgenticSecurityEvalError as exc:
@@ -60,6 +66,18 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     trace_parser.add_argument("--input", required=True, help="Path to a trace bundle JSON.")
     trace_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
+
+    convert_parser = subparsers.add_parser(
+        "convert-trace", help="Convert a raw agent log into a TraceEvaluationInput bundle."
+    )
+    convert_parser.add_argument("--input", required=True, help="Path to a raw agent log JSON.")
+    convert_parser.add_argument("--output", required=True, help="Path to write the trace bundle JSON.")
+
+    raw_eval_parser = subparsers.add_parser(
+        "eval-raw-trace", help="Convert a raw agent log and evaluate it in one step."
+    )
+    raw_eval_parser.add_argument("--input", required=True, help="Path to a raw agent log JSON.")
+    raw_eval_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
 
     return parser
 
@@ -93,6 +111,35 @@ def _run_eval(args: argparse.Namespace) -> int:
 
 def _run_eval_trace(args: argparse.Namespace) -> int:
     trace_input = load_trace_evaluation_input(args.input)
+    runner = TraceEvaluationRunner(
+        target_id=trace_input.attack_trace.target_id,
+        judge_provider=FakeJudgeProvider(),
+    )
+    report = runner.run(trace_input)
+
+    output_path = JsonReportWriter().write(report, args.output)
+    print(f"Wrote report to {output_path}: {report.total_cases} cases, {report.total_findings} findings.")
+    return 0
+
+
+def _run_convert_trace(args: argparse.Namespace) -> int:
+    raw_log = load_raw_agent_log(args.input)
+    trace_input = raw_log_to_trace_input(raw_log)
+
+    output_path = Path(args.output)
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(trace_input.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        raise ReportError(f"Failed to write trace bundle to {output_path}: {exc}") from exc
+
+    print(f"Wrote trace bundle to {output_path} from {len(raw_log.events)} raw events.")
+    return 0
+
+
+def _run_eval_raw_trace(args: argparse.Namespace) -> int:
+    raw_log = load_raw_agent_log(args.input)
+    trace_input = raw_log_to_trace_input(raw_log)
     runner = TraceEvaluationRunner(
         target_id=trace_input.attack_trace.target_id,
         judge_provider=FakeJudgeProvider(),

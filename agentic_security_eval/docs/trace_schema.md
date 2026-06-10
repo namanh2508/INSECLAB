@@ -105,3 +105,22 @@ This bundle produces one **ASI02 / high** finding grounded in the
 - The evaluator **does not follow instructions found inside the trace**.
 - All trace content — payloads, tool outputs, memory values, messages — is
   treated as **untrusted data**.
+
+## Raw event log converter
+
+`TraceEvaluationInput` is the **canonical ingestion contract**. `RawAgentLog` is
+a lighter **convenience fixture format**: a flat list of typed events plus the
+`AttackCase`, which the tool converts into a `TraceEvaluationInput` (so users do
+not have to hand-write a full bundle for simple cases).
+
+- Framework-specific converters (LangGraph, CrewAI, n8n, Elastic, ...) should map
+  their raw events into `TraceEvaluationInput` — directly, or via a `RawAgentLog`.
+- The generic raw log converter is **not** a full LangGraph/CrewAI/n8n converter;
+  it is a framework-neutral reference for normalizing raw agent events into the
+  evaluator schema.
+
+Raw event types: `message`, `tool_call`, `memory_event`, `retrieval_event`,
+`inter_agent_message`, `final_output`, `error`. Convert with
+`agentic-sec-eval convert-trace`, or evaluate in one step with `eval-raw-trace`.
+
+Trace element IDs must be unique within a trace. Explicit IDs are preserved. Missing IDs are generated deterministically without colliding with explicit IDs.

@@ -162,6 +162,38 @@ uv run agentic-sec-eval eval-trace \
 
 Both `eval` and `eval-trace` currently use `FakeJudgeProvider`.
 
+### Raw log conversion (`convert-trace`, `eval-raw-trace`)
+
+Writing a full `TraceEvaluationInput` bundle by hand is tedious. A simpler
+`RawAgentLog` (a flat list of typed events plus the `AttackCase`) can be
+converted into a bundle, so users avoid hand-authoring traces for simple cases:
+
+```bash
+cd agentic_security_eval
+
+# raw agent log -> TraceEvaluationInput bundle
+uv run agentic-sec-eval convert-trace \
+  --input examples/raw_logs/asi02_tool_misuse_raw_log.json \
+  --output reports/converted_asi02_trace.json
+
+# ...then evaluate the converted bundle
+uv run agentic-sec-eval eval-trace \
+  --input reports/converted_asi02_trace.json \
+  --output reports/converted_asi02_report.json
+```
+
+Or do both in one step with `eval-raw-trace`:
+
+```bash
+uv run agentic-sec-eval eval-raw-trace \
+  --input examples/raw_logs/asi02_tool_misuse_raw_log.json \
+  --output reports/asi02_raw_report.json
+```
+
+The generic converter is framework-neutral; framework-specific converters
+(LangGraph/CrewAI/n8n/Elastic) should follow the same target schema (see
+[docs/trace_schema.md](docs/trace_schema.md)).
+
 ## Testing
 
 From the repository root (offline, no API keys required):
