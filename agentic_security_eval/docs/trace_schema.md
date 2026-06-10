@@ -58,8 +58,9 @@ SOC/Elastic workflow logs   -> tool_calls / retrieval_events / final_output
 custom agent telemetry      -> AgentTrace fields
 ```
 
-Concrete converters are out of scope for this phase; this document defines the
-contract those converters must target.
+Framework-specific passive converters remain future work; this document defines
+the contract those converters must target. The framework-neutral `RawAgentLog`
+converter is available for simple raw event logs.
 
 ## 5. Minimal ASI02 example
 
@@ -123,4 +124,6 @@ Raw event types: `message`, `tool_call`, `memory_event`, `retrieval_event`,
 `inter_agent_message`, `final_output`, `error`. Convert with
 `agentic-sec-eval convert-trace`, or evaluate in one step with `eval-raw-trace`.
 
-Trace element IDs must be unique within a trace. Explicit IDs are preserved. Missing IDs are generated deterministically without colliding with explicit IDs.
+Trace element IDs must be globally unique across all id-bearing trace channels
+within a trace. Explicit IDs are preserved. Missing IDs are generated
+deterministically without colliding with explicit IDs.

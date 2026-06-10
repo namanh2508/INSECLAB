@@ -28,7 +28,7 @@ Input source -> AgentTrace -> EvidenceExtractor -> JudgeProvider
 
 ```
 src/agentic_security_eval/core/        schemas, enums, typed errors
-src/agentic_security_eval/adapters/    TargetAdapter + PythonWorkflowAdapter
+src/agentic_security_eval/adapters/    TargetAdapter + PythonWorkflowAdapter + HttpTargetAdapter
 src/agentic_security_eval/converters/  RawAgentLog -> TraceEvaluationInput
 src/agentic_security_eval/oracle/      evidence, judges, validator, findings
 src/agentic_security_eval/evaluator/   live and trace runners
@@ -39,6 +39,7 @@ tests/unit, tests/integration, tests/live
 
 - evaluator core and Pydantic schemas
 - adapter-based live local evaluation
+- HTTP target evaluation via adapter_type=http
 - offline trace evaluation
 - raw event log conversion
 - optional OpenAI-compatible judge provider
@@ -59,6 +60,8 @@ tests/unit, tests/integration, tests/live
 ## Testing
 
 - All tests run offline; no real API keys.
+- HTTP adapter tests must stay offline by default; use loopback only outside
+  gated live tests.
 - Live LLM tests must remain opt-in and gated by environment variables.
 - Run with `uv run pytest` (or `pytest` inside an active venv).
 
@@ -83,3 +86,8 @@ Do not add trailers such as:
 Commit messages should describe the code change only.
 
 If an automated tool inserts an AI attribution trailer, remove it before finalizing the commit.
+
+## Repo Hygiene
+
+Do not commit generated reports, cache files, `.env`, API keys, tokens, or
+credentials. Keep `.env.example` placeholder-only.

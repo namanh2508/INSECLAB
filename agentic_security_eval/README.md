@@ -118,6 +118,14 @@ target, point `entrypoint` at your own importable `module:factory`.
 The evaluator can also be run from the terminal. The CLI defaults to the
 offline `FakeJudgeProvider`.
 
+Current input modes:
+
+- `eval` with a local `python_workflow` target.
+- `eval` with an HTTP target implementing the HTTP adapter contract.
+- `eval-trace` for an existing `TraceEvaluationInput` bundle.
+- `convert-trace` for raw event log conversion.
+- `eval-raw-trace` for raw event log conversion plus evaluation.
+
 From inside the package directory:
 
 ```bash
@@ -192,6 +200,7 @@ allowed_surfaces:
 http:
   base_url: "http://127.0.0.1:8765"
   timeout_seconds: 30
+  auth_token_env: null
   reset_between_cases: true
   max_response_bytes: 1000000
   adapter_schema_version: "0.1"

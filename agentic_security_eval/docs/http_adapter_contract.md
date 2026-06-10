@@ -1,10 +1,10 @@
 # HTTP Adapter Contract
 
-> Status: **design (Phase 12.0)**. No code exists yet. This document is the
-> implementation spec for Phase 12.1+ and the wire contract a target service
-> must implement to be evaluated over HTTP. The canonical evidence schema is
-> [`AgentTrace`](trace_schema.md); this contract only describes how the
-> evaluator obtains an `AgentTrace` from a live HTTP target.
+> Status: **implemented contract for the Phase 12 HTTP target adapter**. This
+> document is the wire contract a target service must implement to be evaluated
+> over HTTP. The canonical evidence schema is [`AgentTrace`](trace_schema.md);
+> this contract only describes how the evaluator obtains an `AgentTrace` from a
+> live HTTP target.
 
 ## Purpose
 
@@ -13,6 +13,10 @@ Agentic AI services** into the evaluator. It implements the existing
 `TargetAdapter` contract (`setup / reset / run_scenario / get_trace`, see
 `src/agentic_security_eval/adapters/base.py`) so it drops into `EvaluatorRunner`
 with no runner change.
+
+The adapter is implemented and wired into CLI `eval` via
+`TargetConfig.adapter_type: http`. The HTTP target still must implement this
+contract; the evaluator does not infer traces from final-answer-only APIs.
 
 It is an **evaluation harness**, not a chat proxy. The contract is:
 
@@ -119,7 +123,7 @@ Authority rules:
 Operator TargetConfig is authoritative.
 Target-reported capability booleans and allowed_surfaces are advisory only.
 A target must not be allowed to shrink (or widen) test scope by self-reporting.
-capabilities.target_id must match TargetConfig.target_id.
+capabilities response target_id must match TargetConfig.target_id.
 adapter_schema_version is a strict consistency check.
 ```
 
@@ -130,8 +134,7 @@ used only to:
 - verify `target_id` matches `TargetConfig.target_id` (mismatch fails fast with
   `AdapterError`),
 - pin / check `adapter_schema_version` (reject an unsupported version),
-- emit a **warning** when the target's self-declared capabilities disagree with
-  the operator config (never to change scope),
+- treat the target's self-declared capabilities as advisory only,
 - read `supports_reset` (see reset rules below).
 
 The canonical surface vocabulary is the `AttackSurface` enum
@@ -192,8 +195,8 @@ Request:
 `run_config` flags (`safe_mode`, `mock_tools`) ask the target to avoid real
 side-effecting tool execution. They are **advisory**: the adapter cannot enforce
 them and must not assume they were honored (see Security requirements). A future
-`request_id` field (for stale/replayed-response detection) is optional and may
-be added by the Phase 12.1 implementation, but is not required in Phase 12.
+`request_id` field (for stale/replayed-response detection) is an optional future
+extension and is not required by the current adapter.
 
 Response:
 
@@ -367,9 +370,9 @@ current behavior this limitation refers to.
 ## Future work
 
 ```text
-Phase 12.1  core HttpTargetAdapter (transport Protocol + UrllibHttpTransport + adapter)
-Phase 12.2  fake HTTP target + loopback integration test
-Phase 12.3  CLI / config wiring (HttpTargetConfig, adapter_type == "http" dispatch)
+Complete   core HttpTargetAdapter (transport Protocol + UrllibHttpTransport + adapter)
+Complete   fake HTTP target + loopback integration test
+Complete   CLI / config wiring (HttpTargetConfig, adapter_type == "http" dispatch)
 Phase 13    evidence hardening (target-agnostic ASI02/ASI06 detection; semantic ASI01 drift)
 Future      passive converters: OpenTelemetry GenAI, LangGraph, CrewAI, n8n, Elastic/SOC workflow
 Future      protocol integrations: MCP / A2A only if a real target use case appears
