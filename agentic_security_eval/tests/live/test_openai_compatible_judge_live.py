@@ -11,18 +11,28 @@ from agentic_security_eval.core.enums import ASICategory, AttackSurface, Evidenc
 from agentic_security_eval.core.models import AgentTrace, AttackCase, Evidence, JudgeDecision, JudgeRequest
 from agentic_security_eval.oracle.openai_compatible_judge import OpenAICompatibleJudgeProvider
 
+_PLACEHOLDERS = {"replace-with-your-api-key", "replace-with-model-name"}
+
 
 def _live_env_available() -> bool:
     return (
         os.environ.get("RUN_LIVE_LLM_TESTS") == "1"
-        and bool(os.environ.get("OPENAI_API_KEY"))
-        and bool(os.environ.get("OPENAI_COMPATIBLE_MODEL"))
+        and _has_real_value("OPENAI_API_KEY")
+        and _has_real_value("OPENAI_COMPATIBLE_MODEL")
     )
+
+
+def _has_real_value(name: str) -> bool:
+    value = os.environ.get(name, "").strip()
+    return bool(value) and value not in _PLACEHOLDERS
 
 
 pytestmark = pytest.mark.skipif(
     not _live_env_available(),
-    reason="live LLM test requires RUN_LIVE_LLM_TESTS=1, OPENAI_API_KEY, and OPENAI_COMPATIBLE_MODEL",
+    reason=(
+        "live LLM test requires RUN_LIVE_LLM_TESTS=1 plus non-placeholder "
+        "OPENAI_API_KEY and OPENAI_COMPATIBLE_MODEL"
+    ),
 )
 
 

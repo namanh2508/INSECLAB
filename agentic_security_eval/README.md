@@ -192,6 +192,31 @@ uv run agentic-sec-eval eval-trace \
 tests are opt-in. Some OpenAI-compatible providers may require
 `--judge-response-format none`.
 
+### Live provider validation
+
+Use the environment template only for local live validation:
+
+```bash
+cd agentic_security_eval
+cp .env.example .env
+# edit .env and fill in real values
+```
+
+`.env.example` intentionally leaves the API key and model empty; fill them in
+your local `.env` before running live tests.
+
+`.env` is for local use only and must not be committed. This project does not
+automatically load `.env`. Export variables in your shell before running live
+tests, or source the file in your shell if your environment supports it:
+
+```bash
+set -a
+source .env
+set +a
+
+uv run pytest tests/live -q
+```
+
 ### Raw log conversion (`convert-trace`, `eval-raw-trace`)
 
 Writing a full `TraceEvaluationInput` bundle by hand is tedious. A simpler

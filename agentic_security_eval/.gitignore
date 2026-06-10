@@ -9,5 +9,10 @@ dist/
 .venv/
 .pytest_cache/
 
+# Local environment files
+.env
+.env.*
+!.env.example
+
 # Evaluator runtime output (later phases)
 reports/
