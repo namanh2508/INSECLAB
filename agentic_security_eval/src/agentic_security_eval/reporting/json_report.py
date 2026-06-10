@@ -6,6 +6,7 @@ report schema stays the single source of truth. Traces are not written here.
 
 from pathlib import Path
 
+from agentic_security_eval.core.errors import ReportError
 from agentic_security_eval.core.models import EvalReport
 
 
@@ -17,6 +18,9 @@ class JsonReportWriter:
 
     def write(self, report: EvalReport, output_path: str | Path) -> Path:
         path = Path(output_path)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(self.to_json(report) + "\n", encoding="utf-8")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(self.to_json(report) + "\n", encoding="utf-8")
+        except OSError as exc:
+            raise ReportError(f"Failed to write report to {path}: {exc}") from exc
         return path

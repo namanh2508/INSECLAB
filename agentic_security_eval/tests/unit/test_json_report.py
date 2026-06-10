@@ -2,12 +2,15 @@
 
 import json
 
+import pytest
+
 from agentic_security_eval.core.enums import (
     ASICategory,
     AttackSurface,
     EvidenceSource,
     Severity,
 )
+from agentic_security_eval.core.errors import ReportError
 from agentic_security_eval.core.models import AttackCase, Evidence, Finding
 from agentic_security_eval.evaluator.aggregator import ReportAggregator
 from agentic_security_eval.reporting.json_report import JsonReportWriter
@@ -57,3 +60,11 @@ def test_write_creates_nested_parent_directories(tmp_path):
     assert path == target
     assert path.exists()
     assert path.parent == tmp_path / "a" / "b" / "c"
+
+
+def test_write_wraps_oserror_in_report_error(tmp_path):
+    # A regular file occupies a path component, so mkdir/write fails with OSError.
+    blocker = tmp_path / "blocker"
+    blocker.write_text("i am a file", encoding="utf-8")
+    with pytest.raises(ReportError):
+        JsonReportWriter().write(_report(), blocker / "sub" / "report.json")

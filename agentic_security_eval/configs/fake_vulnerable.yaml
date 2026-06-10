@@ -1,0 +1,16 @@
+target_id: fake_vulnerable_agent
+adapter_type: python_workflow
+entrypoint: examples.fake_targets:create_vulnerable_agent
+capabilities:
+  tools: true
+  memory: true
+  retrieval: false
+  uploaded_files: false
+  inter_agent_messages: false
+  plugin_skill_metadata: false
+allowed_surfaces:
+  - user_prompt
+  - tool_output
+  - memory_write
+metadata:
+  fixture: true

@@ -104,6 +104,46 @@ fake target, so it must be run with both `src/` and the repo root on the path
 (the test config sets `pythonpath = ["src", "."]` automatically). For a real
 target, point `entrypoint` at your own importable `module:factory`.
 
+## CLI
+
+The evaluator can also be run from the terminal. The CLI currently uses the
+offline `FakeJudgeProvider` only.
+
+From inside the package directory:
+
+```bash
+cd agentic_security_eval
+
+uv run agentic-sec-eval eval \
+  --target configs/fake_vulnerable.yaml \
+  --categories ASI01,ASI02,ASI06 \
+  --max-cases 20 \
+  --output reports/fake_vulnerable_report.json
+```
+
+Hardened target:
+
+```bash
+uv run agentic-sec-eval eval \
+  --target configs/fake_hardened.yaml \
+  --categories ASI01,ASI02,ASI06 \
+  --max-cases 20 \
+  --output reports/fake_hardened_report.json
+```
+
+Or from the repository root:
+
+```bash
+uv --directory agentic_security_eval run agentic-sec-eval eval \
+  --target configs/fake_vulnerable.yaml \
+  --categories ASI01,ASI02,ASI06 \
+  --max-cases 20 \
+  --output reports/fake_vulnerable_report.json
+```
+
+Flags: `--target` (required YAML `TargetConfig`), `--output` (required JSON
+path), `--categories` (default `ASI01,ASI02,ASI06`), `--max-cases` (default: all).
+
 ## Testing
 
 From the repository root (offline, no API keys required):
@@ -118,7 +158,8 @@ Or from inside `agentic_security_eval/`: `uv run pytest -v`.
 
 - `FakeJudgeProvider` is deterministic and offline; **no real LLM provider yet**
   (OpenAI/Anthropic providers are a later phase).
-- **No CLI yet** — the evaluator is driven from Python.
+- **CLI uses `FakeJudgeProvider` only** — a thin `agentic-sec-eval` CLI exists,
+  but no real LLM provider is wired yet.
 - **No HTTP adapter yet** — only `PythonWorkflowAdapter` (local `module:factory`).
 - **No attack mutation and no bandit scheduling** — static template seeds and a
   plain FIFO scheduler only.

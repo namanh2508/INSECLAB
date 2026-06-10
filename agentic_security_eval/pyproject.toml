@@ -20,6 +20,9 @@ dev = [
     "pytest>=8.0",
 ]
 
+[project.scripts]
+agentic-sec-eval = "agentic_security_eval.cli:main"
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/agentic_security_eval"]
 
