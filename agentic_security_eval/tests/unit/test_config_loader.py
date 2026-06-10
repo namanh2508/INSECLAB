@@ -26,6 +26,52 @@ def test_loads_valid_hardened_config():
     assert config.entrypoint == "examples.fake_targets:create_hardened_agent"
 
 
+def test_loads_valid_http_config(tmp_path):
+    config_path = tmp_path / "http.yaml"
+    config_path.write_text(
+        """
+target_id: http-target
+adapter_type: http
+capabilities:
+  tools: true
+  memory: true
+  retrieval: false
+allowed_surfaces:
+  - user_prompt
+  - tool_output
+http:
+  base_url: "http://127.0.0.1:8765"
+  timeout_seconds: 5
+  reset_between_cases: true
+  max_response_bytes: 1000000
+  adapter_schema_version: "0.1"
+""",
+        encoding="utf-8",
+    )
+
+    config = load_target_config(config_path)
+
+    assert config.adapter_type == "http"
+    assert config.http is not None
+    assert config.http.base_url == "http://127.0.0.1:8765"
+
+
+def test_http_adapter_type_without_http_config_raises_config_error(tmp_path):
+    config_path = tmp_path / "http-missing.yaml"
+    config_path.write_text(
+        """
+target_id: http-target
+adapter_type: http
+capabilities:
+  tools: true
+""",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ConfigError):
+        load_target_config(config_path)
+
+
 def test_missing_file_raises_config_error(tmp_path):
     with pytest.raises(ConfigError):
         load_target_config(tmp_path / "does_not_exist.yaml")

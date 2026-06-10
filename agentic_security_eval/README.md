@@ -26,6 +26,7 @@ Key properties:
 ```text
 Input source
   -> TargetConfig + PythonWorkflowAdapter
+  -> TargetConfig + HttpTargetAdapter
   -> TraceEvaluationInput
   -> RawAgentLog converter
   -> AgentTrace
@@ -51,7 +52,8 @@ and validated before findings are built.
 src/agentic_security_eval/
   core/        enums, Pydantic schemas (AgentTrace, AttackCase, Evidence,
                JudgeDecision, Finding, EvalReport, ...), error hierarchy
-  adapters/    TargetAdapter contract + PythonWorkflowAdapter (target -> AgentTrace)
+  adapters/    TargetAdapter contract + PythonWorkflowAdapter/HttpTargetAdapter
+               (target -> AgentTrace)
   attacks/     AttackGenerator + YAML templates (ASI01/02/06) + loader
   config/      YAML TargetConfig loader
   converters/  RawAgentLog -> TraceEvaluationInput converter
@@ -153,7 +155,8 @@ path), `--categories` (default `ASI01,ASI02,ASI06`), `--max-cases` (default: all
 
 ### Trace evaluation (`eval-trace`)
 
-`eval` runs a live local Python target through `PythonWorkflowAdapter`.
+`eval` runs a live target through `PythonWorkflowAdapter` or
+`HttpTargetAdapter`.
 `eval-trace` instead evaluates a **pre-recorded** `TraceEvaluationInput` JSON
 bundle — no target is run. This is the offline audit path for logs/traces from
 real Agentic AI systems once they have been converted to the canonical schema
@@ -168,6 +171,42 @@ uv run agentic-sec-eval eval-trace \
 ```
 
 `eval`, `eval-trace`, and `eval-raw-trace` use `FakeJudgeProvider` by default.
+
+### HTTP target eval
+
+HTTP targets are configured with `adapter_type: http`:
+
+```yaml
+target_id: my_http_agent
+adapter_type: http
+capabilities:
+  tools: true
+  memory: true
+  retrieval: false
+  uploaded_files: false
+  inter_agent_messages: false
+  plugin_skill_metadata: false
+allowed_surfaces:
+  - user_prompt
+  - tool_output
+http:
+  base_url: "http://127.0.0.1:8765"
+  timeout_seconds: 30
+  reset_between_cases: true
+  max_response_bytes: 1000000
+  adapter_schema_version: "0.1"
+```
+
+```bash
+uv run agentic-sec-eval eval \
+  --target configs/http_target_example.yaml \
+  --output reports/http_eval_report.json
+```
+
+The HTTP target must implement
+[docs/http_adapter_contract.md](docs/http_adapter_contract.md) and return an
+`AgentTrace`, not just final answer text. Do not store API keys or bearer tokens
+in YAML; use `auth_token_env` if auth is required.
 
 ### Using an OpenAI-compatible judge
 
@@ -264,9 +303,8 @@ Or from inside `agentic_security_eval/`: `uv run pytest -v`.
 - `FakeJudgeProvider` is deterministic and offline, and remains the default.
 - The optional OpenAI-compatible judge supports Chat Completions only; no
   streaming, tool calling, or provider-specific SDKs.
-- **No HTTP adapter yet** — only `PythonWorkflowAdapter` (local `module:factory`).
-  For the planned live HTTP target interface, see
-  [docs/http_adapter_contract.md](docs/http_adapter_contract.md).
+- **HTTP adapter is synchronous only** — no streaming, SSE, WebSocket, async
+  adapter, or external live target tests.
 - **No attack mutation and no bandit scheduling** — static template seeds and a
   plain FIFO scheduler only.
 - The **fake targets are fixtures**, not real agent systems; they simulate

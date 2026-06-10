@@ -12,12 +12,15 @@ import argparse
 import sys
 from pathlib import Path
 
+from agentic_security_eval.adapters.base import TargetAdapter
+from agentic_security_eval.adapters.http_target import HttpTargetAdapter
 from agentic_security_eval.adapters.python_workflow import PythonWorkflowAdapter
 from agentic_security_eval.attacks.generator import AttackGenerator
 from agentic_security_eval.config.loader import load_target_config
 from agentic_security_eval.converters.raw_event_log import load_raw_agent_log, raw_log_to_trace_input
 from agentic_security_eval.core.enums import ASICategory
 from agentic_security_eval.core.errors import AgenticSecurityEvalError, ConfigError, ReportError
+from agentic_security_eval.core.models import TargetConfig
 from agentic_security_eval.evaluator.runner import EvaluatorRunner
 from agentic_security_eval.evaluator.trace_runner import TraceEvaluationRunner
 from agentic_security_eval.oracle.fake_judge import FakeJudgeProvider
@@ -26,7 +29,6 @@ from agentic_security_eval.oracle.openai_compatible_judge import OpenAICompatibl
 from agentic_security_eval.reporting.json_report import JsonReportWriter
 from agentic_security_eval.trace_io.loader import load_trace_evaluation_input
 
-SUPPORTED_ADAPTER = "python_workflow"
 DEFAULT_CATEGORIES = "ASI01,ASI02,ASI06"
 DEFAULT_JUDGE_PROVIDER = "fake"
 DEFAULT_JUDGE_BASE_URL = "https://api.openai.com/v1"
@@ -94,13 +96,6 @@ def _build_parser() -> argparse.ArgumentParser:
 
 def _run_eval(args: argparse.Namespace) -> int:
     config = load_target_config(args.target)
-    if config.adapter_type != SUPPORTED_ADAPTER:
-        print(
-            f"error: unsupported adapter_type '{config.adapter_type}'; "
-            f"only '{SUPPORTED_ADAPTER}' is supported.",
-            file=sys.stderr,
-        )
-        return 2
 
     categories = _parse_categories(args.categories)
     if categories is None:
@@ -110,7 +105,7 @@ def _run_eval(args: argparse.Namespace) -> int:
     cases = AttackGenerator(config).generate(categories=categories, max_cases=args.max_cases)
     runner = EvaluatorRunner(
         target_id=config.target_id,
-        adapter=PythonWorkflowAdapter(config),
+        adapter=_build_target_adapter(config),
         judge_provider=judge_provider,
     )
     report = runner.run(cases)
@@ -202,6 +197,14 @@ def _build_judge_provider(args: argparse.Namespace) -> JudgeProvider:
             response_format_mode=args.judge_response_format,
         )
     raise ConfigError(f"Unsupported judge provider '{provider}'; valid providers: fake, openai-compatible.")
+
+
+def _build_target_adapter(target_config: TargetConfig) -> TargetAdapter:
+    if target_config.adapter_type == "python_workflow":
+        return PythonWorkflowAdapter(target_config)
+    if target_config.adapter_type == "http":
+        return HttpTargetAdapter(target_config)
+    raise ConfigError(f"Unsupported adapter_type: {target_config.adapter_type}")
 
 
 def _parse_categories(raw: str) -> list[ASICategory] | None:

@@ -32,6 +32,17 @@ def test_invalid_category_returns_nonzero(tmp_path):
 def test_unsupported_adapter_type_returns_nonzero(tmp_path):
     bad_config = tmp_path / "bad.yaml"
     bad_config.write_text(
+        "target_id: x\nadapter_type: unsupported\ncapabilities:\n  tools: false\n",
+        encoding="utf-8",
+    )
+    out = tmp_path / "report.json"
+    rc = main(["eval", "--target", str(bad_config), "--output", str(out)])
+    assert rc != 0
+
+
+def test_http_adapter_type_missing_http_config_returns_nonzero(tmp_path):
+    bad_config = tmp_path / "bad.yaml"
+    bad_config.write_text(
         "target_id: x\nadapter_type: http\ncapabilities:\n  tools: false\n",
         encoding="utf-8",
     )
