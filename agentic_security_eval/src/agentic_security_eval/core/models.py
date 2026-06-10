@@ -10,9 +10,11 @@ Models are declared in dependency order so forward references resolve without
 ``model_rebuild()``.
 """
 
+import re
 from typing import Any
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .enums import ASICategory, AttackSurface, EvidenceSource, Severity
 
@@ -32,6 +34,34 @@ class Capabilities(BaseModel):
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
+class HttpTargetConfig(BaseModel):
+    """Typed HTTP target adapter configuration."""
+
+    base_url: str
+    timeout_seconds: float = Field(default=30.0, gt=0)
+    auth_token_env: str | None = None
+    reset_between_cases: bool = True
+    max_response_bytes: int = Field(default=1_000_000, gt=0)
+    adapter_schema_version: str = "0.1"
+
+    @field_validator("base_url")
+    @classmethod
+    def _check_base_url_scheme(cls, value: str) -> str:
+        scheme = urlparse(value).scheme
+        if scheme not in {"http", "https"}:
+            raise ValueError("http.base_url scheme must be http or https.")
+        return value
+
+    @field_validator("auth_token_env")
+    @classmethod
+    def _check_auth_token_env_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", value):
+            raise ValueError("http.auth_token_env must be an environment variable name.")
+        return value
+
+
 class TargetConfig(BaseModel):
     """Declarative description of a target system the evaluator will probe."""
 
@@ -42,7 +72,14 @@ class TargetConfig(BaseModel):
     capabilities: Capabilities
     allowed_surfaces: list[AttackSurface] = Field(default_factory=list)
     policy_path: str | None = None
+    http: HttpTargetConfig | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_adapter_specific_config(self) -> "TargetConfig":
+        if self.adapter_type == "http" and self.http is None:
+            raise ValueError("http adapter requires TargetConfig.http.")
+        return self
 
 
 # --------------------------------------------------------------------------- #
