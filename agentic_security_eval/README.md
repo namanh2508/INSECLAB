@@ -30,7 +30,7 @@ TargetConfig
   -> PythonWorkflowAdapter
   -> BaselineRunner
   -> EvidenceExtractor
-  -> FakeJudgeProvider
+  -> JudgeProvider (FakeJudgeProvider by default)
   -> DeterministicValidator
   -> FindingBuilder
   -> EvalReport
@@ -106,8 +106,8 @@ target, point `entrypoint` at your own importable `module:factory`.
 
 ## CLI
 
-The evaluator can also be run from the terminal. The CLI currently uses the
-offline `FakeJudgeProvider` only.
+The evaluator can also be run from the terminal. The CLI defaults to the
+offline `FakeJudgeProvider`.
 
 From inside the package directory:
 
@@ -160,7 +160,30 @@ uv run agentic-sec-eval eval-trace \
   --output reports/asi02_trace_report.json
 ```
 
-Both `eval` and `eval-trace` currently use `FakeJudgeProvider`.
+`eval`, `eval-trace`, and `eval-raw-trace` use `FakeJudgeProvider` by default.
+
+### Using an OpenAI-compatible judge
+
+An optional OpenAI-compatible Chat Completions judge can be selected for
+evaluation commands. LLM output is still parsed as `JudgeDecision` and passed
+through `DeterministicValidator`; the LLM never creates findings directly.
+
+```bash
+export OPENAI_API_KEY="..."
+
+cd agentic_security_eval
+
+uv run agentic-sec-eval eval-trace \
+  --input examples/traces/asi02_tool_misuse_trace.json \
+  --output reports/asi02_openai_judge_report.json \
+  --judge-provider openai-compatible \
+  --judge-model <model-name> \
+  --judge-base-url https://api.openai.com/v1
+```
+
+`FakeJudgeProvider` remains the default, normal tests stay offline, and live LLM
+tests are opt-in. Some OpenAI-compatible providers may require
+`--judge-response-format none`.
 
 ### Raw log conversion (`convert-trace`, `eval-raw-trace`)
 
@@ -206,10 +229,9 @@ Or from inside `agentic_security_eval/`: `uv run pytest -v`.
 
 ## Current limitations
 
-- `FakeJudgeProvider` is deterministic and offline; **no real LLM provider yet**
-  (OpenAI/Anthropic providers are a later phase).
-- **CLI uses `FakeJudgeProvider` only** — a thin `agentic-sec-eval` CLI exists,
-  but no real LLM provider is wired yet.
+- `FakeJudgeProvider` is deterministic and offline, and remains the default.
+- The optional OpenAI-compatible judge supports Chat Completions only; no
+  streaming, tool calling, or provider-specific SDKs.
 - **No HTTP adapter yet** — only `PythonWorkflowAdapter` (local `module:factory`).
 - **No attack mutation and no bandit scheduling** — static template seeds and a
   plain FIFO scheduler only.
