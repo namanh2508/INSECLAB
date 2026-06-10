@@ -144,6 +144,24 @@ uv --directory agentic_security_eval run agentic-sec-eval eval \
 Flags: `--target` (required YAML `TargetConfig`), `--output` (required JSON
 path), `--categories` (default `ASI01,ASI02,ASI06`), `--max-cases` (default: all).
 
+### Trace evaluation (`eval-trace`)
+
+`eval` runs a live local Python target through `PythonWorkflowAdapter`.
+`eval-trace` instead evaluates a **pre-recorded** `TraceEvaluationInput` JSON
+bundle — no target is run. This is the offline audit path for logs/traces from
+real Agentic AI systems once they have been converted to the canonical schema
+(see [docs/trace_schema.md](docs/trace_schema.md)).
+
+```bash
+cd agentic_security_eval
+
+uv run agentic-sec-eval eval-trace \
+  --input examples/traces/asi02_tool_misuse_trace.json \
+  --output reports/asi02_trace_report.json
+```
+
+Both `eval` and `eval-trace` currently use `FakeJudgeProvider`.
+
 ## Testing
 
 From the repository root (offline, no API keys required):

@@ -12,7 +12,7 @@ Models are declared in dependency order so forward references resolve without
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .enums import ASICategory, AttackSurface, EvidenceSource, Severity
 
@@ -226,3 +226,29 @@ class EvalReport(BaseModel):
     severity_distribution: dict[str, int] = Field(default_factory=dict)
     surface_summary: dict[str, int] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+# --------------------------------------------------------------------------- #
+# Trace evaluation input (canonical ingestion contract)
+# --------------------------------------------------------------------------- #
+class TraceEvaluationInput(BaseModel):
+    """A pre-recorded trace bundle the evaluator can assess without a live target.
+
+    This is the canonical ingestion contract: external agent systems (or their
+    converters) normalize into this shape before evaluation.
+    """
+
+    attack_case: AttackCase
+    attack_trace: AgentTrace
+    baseline_trace: AgentTrace | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _check_attack_case_id(self) -> "TraceEvaluationInput":
+        trace_case_id = self.attack_trace.attack_case_id
+        if trace_case_id is not None and trace_case_id != self.attack_case.id:
+            raise ValueError(
+                f"attack_trace.attack_case_id ({trace_case_id!r}) must equal "
+                f"attack_case.id ({self.attack_case.id!r})."
+            )
+        return self
