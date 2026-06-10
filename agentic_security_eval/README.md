@@ -24,13 +24,13 @@ Key properties:
 ## Architecture
 
 ```text
-TargetConfig
-  -> AttackGenerator
-  -> FifoScheduler
-  -> PythonWorkflowAdapter
-  -> BaselineRunner
+Input source
+  -> TargetConfig + PythonWorkflowAdapter
+  -> TraceEvaluationInput
+  -> RawAgentLog converter
+  -> AgentTrace
   -> EvidenceExtractor
-  -> JudgeProvider (FakeJudgeProvider by default)
+  -> JudgeProvider
   -> DeterministicValidator
   -> FindingBuilder
   -> EvalReport
@@ -38,10 +38,12 @@ TargetConfig
 ```
 
 The oracle is **hybrid**: `EvidenceExtractor` produces ID-grounded candidate
-`Evidence`; `FakeJudgeProvider` rules only on those signals; `DeterministicValidator`
+`Evidence`; a `JudgeProvider` returns a `JudgeDecision`; `DeterministicValidator`
 rejects/downgrades any decision that is not grounded (category mismatch, missing
 evidence IDs, high/critical without direct evidence); `FindingBuilder` assembles
-the validated `Finding`.
+the validated `Finding`. `FakeJudgeProvider` remains the default. The
+OpenAI-compatible judge is optional and explicit, and LLM output is still parsed
+and validated before findings are built.
 
 ## Package structure
 
@@ -51,14 +53,19 @@ src/agentic_security_eval/
                JudgeDecision, Finding, EvalReport, ...), error hierarchy
   adapters/    TargetAdapter contract + PythonWorkflowAdapter (target -> AgentTrace)
   attacks/     AttackGenerator + YAML templates (ASI01/02/06) + loader
+  config/      YAML TargetConfig loader
+  converters/  RawAgentLog -> TraceEvaluationInput converter
   surfaces/    AttackSurfaceModel (capabilities -> in-scope attack surfaces)
   scheduler/   FifoScheduler
   oracle/      EvidenceExtractor, JudgeProvider contract + parse_judge_decision,
-               FakeJudgeProvider, DeterministicValidator, FindingBuilder
+               FakeJudgeProvider, OpenAICompatibleJudgeProvider,
+               DeterministicValidator, FindingBuilder
   evaluator/   BaselineRunner, EvaluatorRunner, ReportAggregator
   reporting/   JsonReportWriter
+  trace_io/    TraceEvaluationInput JSON loader
 examples/      fake vulnerable/hardened targets (test fixtures, not real agents)
 tests/         offline unit + integration tests
+tests/live/    gated live tests
 ```
 
 ## Usage

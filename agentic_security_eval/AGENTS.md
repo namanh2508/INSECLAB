@@ -12,25 +12,39 @@ agents here beyond minimal fake fixtures used by tests.
 ## Architecture
 
 ```
-AttackCase -> TargetAdapter -> Agentic System -> AgentTrace
-           -> Evidence Extractor -> LLM Judge -> Deterministic Validator
-           -> Finding -> JSON Report
+Input source -> AgentTrace -> EvidenceExtractor -> JudgeProvider
+             -> DeterministicValidator -> FindingBuilder -> JSON Report
 ```
 
 - `AgentTrace` is the central abstraction; normalize every target into it before
   evaluation.
 - The evaluator must not depend on any specific agent framework.
-- The oracle is hybrid: the LLM judge is one stage, never the sole source of
+- The oracle is hybrid: the judge is one stage, never the sole source of
   truth. ID-grounded `Evidence` + a deterministic validator gate every finding.
+- `FakeJudgeProvider` is the default. `OpenAICompatibleJudgeProvider` is optional
+  and must be selected explicitly.
 
 ## Layout
 
 ```
-src/agentic_security_eval/core/      enums.py, models.py, errors.py
-src/agentic_security_eval/adapters/  base.py  (TargetAdapter Protocol)
-src/agentic_security_eval/oracle/    judge.py (JudgeProvider Protocol)
-tests/unit/
+src/agentic_security_eval/core/        schemas, enums, typed errors
+src/agentic_security_eval/adapters/    TargetAdapter + PythonWorkflowAdapter
+src/agentic_security_eval/converters/  RawAgentLog -> TraceEvaluationInput
+src/agentic_security_eval/oracle/      evidence, judges, validator, findings
+src/agentic_security_eval/evaluator/   live and trace runners
+tests/unit, tests/integration, tests/live
 ```
+
+## Current implemented capabilities
+
+- evaluator core and Pydantic schemas
+- adapter-based live local evaluation
+- offline trace evaluation
+- raw event log conversion
+- optional OpenAI-compatible judge provider
+- JSON reporting
+- offline unit/integration tests
+- gated live tests
 
 ## Coding rules
 
@@ -45,7 +59,7 @@ tests/unit/
 ## Testing
 
 - All tests run offline; no real API keys.
-- The LLM judge is exercised through a `FakeJudgeProvider` (later phase).
+- Live LLM tests must remain opt-in and gated by environment variables.
 - Run with `uv run pytest` (or `pytest` inside an active venv).
 
 ## Security
@@ -69,9 +83,3 @@ Do not add trailers such as:
 Commit messages should describe the code change only.
 
 If an automated tool inserts an AI attribution trailer, remove it before finalizing the commit.
-
-## Phase status
-
-Phase 1 done: schemas + enums + errors + adapter/judge contracts. Do not
-implement later phases (fake targets, adapter impls, generator, scheduler,
-evidence extractor, judge impls, runner, CLI, report writer) until asked.
