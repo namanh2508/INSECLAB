@@ -265,6 +265,8 @@ Or from inside `agentic_security_eval/`: `uv run pytest -v`.
 - The optional OpenAI-compatible judge supports Chat Completions only; no
   streaming, tool calling, or provider-specific SDKs.
 - **No HTTP adapter yet** — only `PythonWorkflowAdapter` (local `module:factory`).
+  For the planned live HTTP target interface, see
+  [docs/http_adapter_contract.md](docs/http_adapter_contract.md).
 - **No attack mutation and no bandit scheduling** — static template seeds and a
   plain FIFO scheduler only.
 - The **fake targets are fixtures**, not real agent systems; they simulate
