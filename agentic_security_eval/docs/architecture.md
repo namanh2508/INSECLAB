@@ -19,6 +19,34 @@ Input source (TargetAdapter / TraceEvaluationInput / RawAgentLog)
 The oracle is **hybrid**: a deterministic evidence layer plus an (untrusted) LLM
 judge, with a deterministic validator gating every finding.
 
+## Source layout
+
+```text
+src/agentic_security_eval/
+  core/        Pydantic schemas, enums, typed error hierarchy
+  adapters/    TargetAdapter contract + PythonWorkflow / HTTP adapters
+  attacks/     AttackGenerator + YAML attack templates
+  surfaces/    AttackSurfaceModel (capabilities -> in-scope attack surfaces)
+  config/      YAML TargetConfig loader
+  trace_io/    TraceEvaluationInput JSON loader
+  converters/  RawAgentLog -> TraceEvaluationInput
+  scheduler/   FifoScheduler
+  oracle/      EvidenceExtractor + evidence_rules/ + judges + validator + finding builder
+  evaluator/   live runner, trace runner, baseline capture, report aggregator
+  reporting/   JsonReportWriter
+```
+
+Where future work lands (so the tree stays predictable):
+
+- batch / multi-target evaluation -> `evaluator/`
+- Markdown / HTML reports -> `reporting/` (render the existing `EvalReport`)
+- framework converters (LangGraph, n8n, Elastic/SOAR) -> `converters/`, each
+  emitting `AgentTrace` or `RawAgentLog` (never a new schema)
+- retrieval / inter-agent direct evidence -> a new `oracle/evidence_rules/` module
+  plus a category-gated call in `EvidenceExtractor`
+- baseline / differential analysis -> `evaluator/` (the baseline is captured today
+  but used only as context, not yet a comparison signal)
+
 ## AgentTrace — the canonical contract
 
 `AgentTrace` (`core/models.py`) is the single normalized representation of one
