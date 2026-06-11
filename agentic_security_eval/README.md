@@ -132,6 +132,7 @@ Current input modes:
 - `eval` with a local `python_workflow` target.
 - `eval` with an HTTP target implementing the HTTP adapter contract.
 - `eval-trace` for an existing `TraceEvaluationInput` bundle.
+- `eval-traces` for a directory of trace bundles (batch + Markdown report).
 - `convert-trace` for raw event log conversion.
 - `eval-raw-trace` for raw event log conversion plus evaluation.
 
@@ -192,7 +193,42 @@ uv run agentic-sec-eval eval-trace \
   --output reports/asi02_trace_report.json
 ```
 
-`eval`, `eval-trace`, and `eval-raw-trace` use `FakeJudgeProvider` by default.
+`eval`, `eval-trace`, `eval-traces`, and `eval-raw-trace` use `FakeJudgeProvider`
+by default.
+
+### Batch trace evaluation (`eval-traces`)
+
+`eval-traces` evaluates **every** `*.json` trace bundle in a directory in one run
+and folds the per-file reports into a single batch report — useful for small
+benchmark suites, thesis/demo runs, CI security gates, and comparing vulnerable
+vs hardened traces. Files are evaluated in sorted order for deterministic output,
+and an invalid trace file fails the whole batch (it is never silently skipped).
+
+```bash
+cd agentic_security_eval
+
+uv run agentic-sec-eval eval-traces \
+  --input-dir examples/traces \
+  --output reports/batch_report.json \
+  --markdown-output reports/batch_report.md
+```
+
+The JSON report (`--output`, required) is the machine-readable artifact for
+automation/CI: it carries `total_files`/`total_cases`/`total_findings`, severity,
+category, and evidence-signal distributions, and the full per-file `EvalReport`s.
+The Markdown report (`--markdown-output`, optional) is a concise summary for human
+review (it lists evidence IDs, not raw evidence snippets). Both are written under
+`reports/` and are git-ignored.
+
+`--fail-on` works the same as for `eval`/`eval-trace`: exit code 3 if any finding
+in any file is at or above the given severity (the reports are still written first).
+
+```bash
+uv run agentic-sec-eval eval-traces \
+  --input-dir examples/traces \
+  --output reports/batch_report.json \
+  --fail-on high
+```
 
 ### HTTP target eval
 

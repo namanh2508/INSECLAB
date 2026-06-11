@@ -32,14 +32,15 @@ src/agentic_security_eval/
   converters/  RawAgentLog -> TraceEvaluationInput
   scheduler/   FifoScheduler
   oracle/      EvidenceExtractor + evidence_rules/ + judges + validator + finding builder
-  evaluator/   live runner, trace runner, baseline capture, report aggregator
-  reporting/   JsonReportWriter
+  evaluator/   live runner, trace runner, batch runner, baseline capture, report aggregator
+  reporting/   JSON + batch JSON + Markdown report writers
 ```
 
 Where future work lands (so the tree stays predictable):
 
-- batch / multi-target evaluation -> `evaluator/`
-- Markdown / HTML reports -> `reporting/` (render the existing `EvalReport`)
+- multi-target evaluation -> `evaluator/` (batch over a directory of trace files
+  is implemented; see "Batch evaluation and reporting" below)
+- HTML reports -> `reporting/` (render the existing `EvalReport` / `BatchReport`)
 - framework converters (LangGraph, n8n, Elastic/SOAR) -> `converters/`, each
   emitting `AgentTrace` or `RawAgentLog` (never a new schema)
 - retrieval / inter-agent direct evidence -> a new `oracle/evidence_rules/` module
@@ -127,9 +128,27 @@ uv run agentic-sec-eval coverage              # human-readable table
 uv run agentic-sec-eval coverage --format json
 ```
 
-The matrix is the planning map for evidence-depth work (Phase 14.2+): closing a gap
-means turning a `generation_only`/`indirect` surface into `direct` by adding a
-category-gated rule (below) and then updating `coverage.py`.
+The matrix is the planning map for evidence-depth work: closing a gap means turning
+a `generation_only`/`indirect` surface into `direct` by adding a category-gated rule
+(below) and then updating `coverage.py`.
+
+## Batch evaluation and reporting
+
+`eval-traces` evaluates every `*.json` trace bundle in a directory through the same
+offline path as `eval-trace`. `BatchTraceRunner` (`evaluator/batch_runner.py`)
+discovers and sorts the files (failing fast on an invalid one rather than silently
+skipping), runs each through `TraceEvaluationRunner`, and `build_batch_report`
+(`reporting/batch_report.py`) folds the per-file `EvalReport`s into one `BatchReport`:
+cross-file severity, category, and evidence-signal distributions plus the embedded
+per-file reports. `BatchReport` *embeds* `EvalReport` unchanged and adds no new
+evidence semantics.
+
+Two artifacts are produced. The JSON report (`write_batch_report`) is the
+machine-readable output for automation/CI. The optional Markdown report
+(`reporting/markdown_report.py`) is for human review: it is deterministic, lists
+evidence **IDs** rather than snippets, and pipe-escapes every table cell so untrusted
+finding text cannot break the table layout. `--fail-on` reuses the single-run
+severity gate (exit code 3) across all findings in all files.
 
 ## Authoring an evidence rule
 

@@ -21,13 +21,16 @@ from agentic_security_eval.config.loader import load_target_config
 from agentic_security_eval.converters.raw_event_log import load_raw_agent_log, raw_log_to_trace_input
 from agentic_security_eval.core.enums import ASICategory, Severity
 from agentic_security_eval.core.errors import AgenticSecurityEvalError, ConfigError, ReportError
-from agentic_security_eval.core.models import EvalReport, TargetConfig
+from agentic_security_eval.core.models import EvalReport, Finding, TargetConfig
+from agentic_security_eval.evaluator.batch_runner import BatchTraceRunner
 from agentic_security_eval.evaluator.runner import EvaluatorRunner
 from agentic_security_eval.evaluator.trace_runner import TraceEvaluationRunner
 from agentic_security_eval.oracle.fake_judge import FakeJudgeProvider
 from agentic_security_eval.oracle.judge import JudgeProvider
 from agentic_security_eval.oracle.openai_compatible_judge import OpenAICompatibleJudgeProvider
+from agentic_security_eval.reporting.batch_report import BatchReport, write_batch_report
 from agentic_security_eval.reporting.json_report import JsonReportWriter
+from agentic_security_eval.reporting.markdown_report import render_batch_markdown, write_markdown
 from agentic_security_eval.surfaces.coverage import coverage_matrix_as_dict, list_surface_coverage
 from agentic_security_eval.trace_io.loader import load_trace_evaluation_input
 
@@ -50,6 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     handlers = {
         "eval": _run_eval,
         "eval-trace": _run_eval_trace,
+        "eval-traces": _run_eval_traces,
         "convert-trace": _run_convert_trace,
         "eval-raw-trace": _run_eval_raw_trace,
         "coverage": _run_coverage,
@@ -86,6 +90,21 @@ def _build_parser() -> argparse.ArgumentParser:
     trace_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
     _add_judge_options(trace_parser)
     _add_fail_on(trace_parser)
+
+    batch_parser = subparsers.add_parser(
+        "eval-traces",
+        help="Evaluate every TraceEvaluationInput JSON bundle in a directory (batch).",
+    )
+    batch_parser.add_argument(
+        "--input-dir", required=True, help="Directory containing trace bundle JSON files."
+    )
+    batch_parser.add_argument("--output", required=True, help="Path to write the batch JSON report.")
+    batch_parser.add_argument(
+        "--markdown-output", default=None,
+        help="Optional path to write a human-readable Markdown report.",
+    )
+    _add_judge_options(batch_parser)
+    _add_fail_on(batch_parser)
 
     convert_parser = subparsers.add_parser(
         "convert-trace", help="Convert a raw agent log into a TraceEvaluationInput bundle."
@@ -146,6 +165,22 @@ def _run_eval_trace(args: argparse.Namespace) -> int:
     output_path = JsonReportWriter().write(report, args.output)
     print(f"Wrote report to {output_path}: {report.total_cases} cases, {report.total_findings} findings.")
     return _fail_on_exit(report, args.fail_on)
+
+
+def _run_eval_traces(args: argparse.Namespace) -> int:
+    judge_provider = _build_judge_provider(args)
+    batch = BatchTraceRunner(judge_provider=judge_provider).run(args.input_dir)
+
+    json_path = write_batch_report(batch, args.output)
+    message = (
+        f"Wrote batch report to {json_path}: {batch.total_files} files, "
+        f"{batch.total_cases} cases, {batch.total_findings} findings."
+    )
+    if args.markdown_output:
+        markdown_path = write_markdown(render_batch_markdown(batch), args.markdown_output)
+        message += f" Markdown: {markdown_path}."
+    print(message)
+    return _fail_on_exit_batch(batch, args.fail_on)
 
 
 def _run_convert_trace(args: argparse.Namespace) -> int:
@@ -226,16 +261,34 @@ def _add_fail_on(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _findings_at_or_above(findings: list[Finding], fail_on: str | None) -> list[Finding]:
+    """Findings whose severity rank meets the --fail-on threshold (empty if unset)."""
+    if not fail_on:
+        return []
+    threshold = _SEVERITY_RANK[Severity(fail_on)]
+    return [f for f in findings if _SEVERITY_RANK[f.severity] >= threshold]
+
+
 def _fail_on_exit(report: EvalReport, fail_on: str | None) -> int:
-    """Return 0, or FAIL_ON_EXIT_CODE if a finding meets the --fail-on threshold.
+    """Exit code for a single report: FAIL_ON_EXIT_CODE if it trips --fail-on, else 0.
 
     The report has already been written by the caller; this only decides the exit
     code. Parser/config/runtime errors are handled elsewhere and are unaffected.
     """
-    if not fail_on:
-        return 0
-    threshold = _SEVERITY_RANK[Severity(fail_on)]
-    triggering = [f for f in report.findings if _SEVERITY_RANK[f.severity] >= threshold]
+    return _fail_on_result(_findings_at_or_above(report.findings, fail_on), fail_on)
+
+
+def _fail_on_exit_batch(batch: BatchReport, fail_on: str | None) -> int:
+    """Exit code for a batch: FAIL_ON_EXIT_CODE if any finding in any file trips --fail-on.
+
+    All report files have already been written by the caller; this only decides
+    the exit code.
+    """
+    findings = [f for entry in batch.reports for f in entry.report.findings]
+    return _fail_on_result(_findings_at_or_above(findings, fail_on), fail_on)
+
+
+def _fail_on_result(triggering: list[Finding], fail_on: str | None) -> int:
     if triggering:
         print(
             f"error: {len(triggering)} finding(s) at or above severity '{fail_on}' (--fail-on).",
