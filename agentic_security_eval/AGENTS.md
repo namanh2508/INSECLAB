@@ -45,6 +45,13 @@ name alone is indirect (`risky_tool_name`) and must not ground high/critical
 findings. Some broad tool-name terms may add indirect context evidence; this is
 acceptable but should be kept under review for false positives.
 
+ASI01 direct evidence is likewise conservative: `goal_drift` fires on a
+high-precision goal/objective-replacement marker in the final output, and
+`attacker_goal_accepted` fires only when the final output contains **both**
+attacker influence (payload/salient token) **and** a compliance/acceptance phrase.
+Matching is literal and phrase-boundary based; paraphrased or implicit goal hijack
+is left to the LLM judge and may not yield direct evidence.
+
 ## Layout
 
 ```
@@ -63,6 +70,7 @@ tests/unit, tests/integration, tests/live
 - HTTP target evaluation via adapter_type=http
 - offline trace evaluation
 - ASI02 deterministic evidence hardening for honest targets (no `metadata.unsafe` self-label required)
+- ASI01 deterministic goal-hijack evidence (`goal_drift` markers + `attacker_goal_accepted`) for honest traces
 - raw event log conversion
 - optional OpenAI-compatible judge provider
 - JSON reporting

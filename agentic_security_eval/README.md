@@ -22,6 +22,10 @@ Key properties:
   even if the target does not self-label the call (`metadata.unsafe` is supported
   but not required). It does not catch cases where the agent paraphrases away or
   hides the attacker-controlled input.
+- **Deterministic ASI01 goal-hijack evidence** — direct evidence fires on a
+  goal/objective-replacement marker, or on attacker influence plus a compliance
+  phrase in the final output (`attacker_goal_accepted`); paraphrased or implicit
+  hijacks still rely on the LLM judge.
 - **JSON report first** — JSON is the primary output (Markdown/HTML later).
 - **Offline by default** — the MVP ships a deterministic `FakeJudgeProvider`, so
   the whole pipeline (and the full test suite) runs offline with no API keys.

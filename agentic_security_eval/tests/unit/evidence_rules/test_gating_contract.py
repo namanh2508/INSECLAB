@@ -8,12 +8,13 @@ trust any direct evidence.
 
 import inspect
 
+from agentic_security_eval.oracle.evidence_rules.asi01_goal_hijack import classify_asi01_final_output
 from agentic_security_eval.oracle.evidence_rules.asi02_tool_misuse import classify_asi02_tool_call
 from agentic_security_eval.oracle.evidence_rules.asi06_memory_poisoning import classify_asi06_memory_event
 
 
 def test_classifiers_do_not_accept_category_parameter():
-    for fn in (classify_asi02_tool_call, classify_asi06_memory_event):
+    for fn in (classify_asi01_final_output, classify_asi02_tool_call, classify_asi06_memory_event):
         params = set(inspect.signature(fn).parameters)
         assert "category" not in params, f"{fn.__name__} must not take a category"
         assert "attack_case" not in params, f"{fn.__name__} must not take an attack_case"
