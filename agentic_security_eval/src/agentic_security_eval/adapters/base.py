@@ -38,8 +38,14 @@ class TargetAdapter(Protocol):
         """Return the target to a clean state between scenarios."""
         ...
 
-    def run_scenario(self, attack_case: AttackCase) -> None:
-        """Drive the target with one attack case. Side-effecting."""
+    def run_scenario(self, attack_case: AttackCase) -> AgentTrace | None:
+        """Drive the target with one attack case (side-effecting).
+
+        An adapter may return the normalized ``AgentTrace`` it produced (the HTTP
+        adapter does) or ``None`` and store it for ``get_trace()`` (the local
+        workflow adapter does). ``EvaluatorRunner`` reads the trace via
+        ``get_trace()`` either way, so both are valid.
+        """
         ...
 
     def get_trace(self) -> AgentTrace:

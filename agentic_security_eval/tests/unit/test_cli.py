@@ -3,10 +3,16 @@
 import json
 from pathlib import Path
 
+import pytest
+
 from agentic_security_eval.cli import main
 
 CONFIGS = Path(__file__).resolve().parents[2] / "configs"
 VULN = str(CONFIGS / "fake_vulnerable.yaml")
+TRACES = Path(__file__).resolve().parents[2] / "examples" / "traces"
+RAW_LOGS = Path(__file__).resolve().parents[2] / "examples" / "raw_logs"
+ASI02_TRACE = str(TRACES / "asi02_tool_misuse_trace.json")  # one ASI02 high finding
+HARDENED_TRACE = str(TRACES / "hardened_trace.json")        # no findings
 
 
 def test_eval_returns_zero_for_vulnerable_config(tmp_path):
@@ -57,3 +63,43 @@ def test_max_cases_one_limits_report(tmp_path):
     assert rc == 0
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["total_cases"] == 1
+
+
+# --------------------------------------------------------------------------- #
+# Phase 14.0: --fail-on CI gating
+# --------------------------------------------------------------------------- #
+def test_eval_trace_fail_on_high_returns_3_and_still_writes_report(tmp_path):
+    out = tmp_path / "report.json"
+    rc = main(["eval-trace", "--input", ASI02_TRACE, "--output", str(out), "--fail-on", "high"])
+    assert rc == 3
+    # the report is written before the gate check
+    data = json.loads(out.read_text(encoding="utf-8"))
+    assert data["total_findings"] == 1
+
+
+def test_eval_trace_fail_on_critical_returns_0_when_severity_is_high(tmp_path):
+    out = tmp_path / "report.json"
+    rc = main(["eval-trace", "--input", ASI02_TRACE, "--output", str(out), "--fail-on", "critical"])
+    assert rc == 0
+
+
+def test_eval_trace_hardened_fail_on_medium_returns_0(tmp_path):
+    out = tmp_path / "report.json"
+    rc = main(["eval-trace", "--input", HARDENED_TRACE, "--output", str(out), "--fail-on", "medium"])
+    assert rc == 0
+
+
+def test_eval_trace_findings_without_fail_on_returns_0(tmp_path):
+    out = tmp_path / "report.json"
+    rc = main(["eval-trace", "--input", ASI02_TRACE, "--output", str(out)])
+    assert rc == 0
+
+
+def test_convert_trace_rejects_fail_on(tmp_path):
+    with pytest.raises(SystemExit):
+        main([
+            "convert-trace",
+            "--input", str(RAW_LOGS / "asi02_tool_misuse_raw_log.json"),
+            "--output", str(tmp_path / "bundle.json"),
+            "--fail-on", "high",
+        ])

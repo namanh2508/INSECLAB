@@ -52,6 +52,9 @@ the validated `Finding`. `FakeJudgeProvider` remains the default. The
 OpenAI-compatible judge is optional and explicit, and LLM output is still parsed
 and validated before findings are built.
 
+See [docs/architecture.md](docs/architecture.md) for the pipeline, the evidence
+trust model, and how to author a new evidence rule.
+
 ## Package structure
 
 ```

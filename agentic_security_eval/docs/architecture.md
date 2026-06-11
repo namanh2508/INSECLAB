@@ -1,0 +1,92 @@
+# Architecture
+
+A short orientation for contributors. For the agent operating rules see the root
+[`AGENTS.md`](../../AGENTS.md) and the package [`AGENTS.md`](../AGENTS.md); for the
+evidence schema see [`trace_schema.md`](trace_schema.md).
+
+## Pipeline
+
+```text
+Input source (TargetAdapter / TraceEvaluationInput / RawAgentLog)
+  -> AgentTrace
+  -> EvidenceExtractor   (+ oracle/evidence_rules/*)
+  -> JudgeProvider
+  -> DeterministicValidator
+  -> FindingBuilder
+  -> EvalReport -> JsonReportWriter
+```
+
+The oracle is **hybrid**: a deterministic evidence layer plus an (untrusted) LLM
+judge, with a deterministic validator gating every finding.
+
+## AgentTrace — the canonical contract
+
+`AgentTrace` (`core/models.py`) is the single normalized representation of one
+target run: `messages`, `tool_calls`, `memory_events`, `retrieval_events`,
+`inter_agent_messages`, `final_output`, `errors`, `metadata`. **Every** input
+path normalizes into it before any evaluation logic runs, so the evaluator never
+depends on a specific agent framework. Two ingestion contracts feed it:
+
+- `TraceEvaluationInput` — the canonical offline bundle (`eval-trace`).
+- `RawAgentLog` — a convenience flat event list converted into the bundle.
+
+## Adapter boundary
+
+An adapter is the **only** place untrusted target output is parsed into a typed
+`AgentTrace`. Adapters **do not** judge, synthesize direct evidence, or synthesize
+`metadata.unsafe`. The HTTP adapter validates shape/consistency only (envelope,
+required keys, id uniqueness, `target_id`/`attack_case_id` match) and never
+repairs a trace. `run_scenario` may return the trace or store it for
+`get_trace()`; `EvaluatorRunner` reads it via `get_trace()`.
+
+## EvidenceExtractor facade
+
+`oracle/evidence.py` owns, and is the **only** owner of:
+
+- trace-channel iteration (fixed order),
+- **category-gating** (`if attack_case.category == ASICategory.ASIxx:`),
+- `Evidence` construction and stable id assignment (`ev-001`, `ev-002`, ...),
+- the cross-category *indirect* signals (`payload_observed`,
+  `suspicious_retrieval_content`, `suspicious_inter_agent_message`,
+  `final_output_observed`).
+
+## evidence_rules and EvidenceCandidate
+
+Category-specific deterministic logic lives in `oracle/evidence_rules/`
+(`common.py` primitives, `candidate.py`, `asi01_goal_hijack.py`,
+`asi02_tool_misuse.py`, `asi06_memory_poisoning.py`). A rule classifies one trace
+element and returns an `EvidenceCandidate(signal, direct, reason, extra)` or
+`None`. Matching is conservative, literal, and phrase-boundary based — not
+semantic; paraphrased attacks are left to the judge. Blocked/refused markers
+downgrade a direct candidate to an indirect one (e.g. `risky_tool_call_blocked`,
+`attacker_goal_refused`).
+
+## JudgeProvider is untrusted
+
+`FakeJudgeProvider` is the deterministic default (offline tests use it). The
+optional `OpenAICompatibleJudgeProvider` is explicit. Either way the raw output
+goes through the strict `parse_judge_decision()` boundary, and the judge may cite
+**only** existing `Evidence.id` values — it cannot invent evidence.
+
+## DeterministicValidator — the trust gate
+
+`oracle/validator.py` rejects a vulnerable decision whose cited evidence ids do
+not exist, requires at least one valid cited item, and **downgrades high/critical
+to medium unless a cited *direct* evidence item is present**. This is the
+load-bearing invariant: because direct evidence is deterministic and
+category-gated, an untrusted judge cannot mint a high/critical finding.
+
+## Authoring an evidence rule
+
+1. Create or update `oracle/evidence_rules/<category>.py`.
+2. Return `EvidenceCandidate | None` — one candidate per element.
+3. Do **not** assign Evidence ids; do **not** construct `Evidence`/`Finding`/
+   `JudgeDecision`; do **not** inspect `attack_case.category` (no `category`
+   parameter — the gating-contract test enforces this).
+4. Add the category-gated call in `EvidenceExtractor` (the facade owns iteration,
+   gating, and id assignment).
+5. Add rule-module unit tests, facade tests in `tests/unit/test_evidence_extractor.py`,
+   and — if it proves an end-to-end honest path — an integration fixture under
+   `examples/traces/` plus a `tests/integration/test_honest_*` case.
+6. Keep direct evidence high-precision; route semantics to the judge, not the
+   evidence layer.

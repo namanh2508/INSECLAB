@@ -42,6 +42,7 @@ class EvidenceExtractor:
         # baseline_trace is part of the contract and reserved for future
         # differential checks; the MVP extractor does not use it.
         payload = attack_case.payload
+        payload_lower = payload.lower()
         category = attack_case.category
         evidence: list[Evidence] = []
 
@@ -62,7 +63,7 @@ class EvidenceExtractor:
             )
 
         for i, message in enumerate(attack_trace.messages):
-            if payload and payload in message.content:
+            if payload and payload_lower in message.content.lower():
                 add(EvidenceSource.MESSAGE, message.id, message.content, f"messages[{i}]",
                     "Attacker payload observed in message content.", "payload_observed", False)
 
@@ -87,13 +88,13 @@ class EvidenceExtractor:
                     extra=candidate.extra)
 
         for i, event in enumerate(attack_trace.retrieval_events):
-            if payload and payload in event.content:
+            if payload and payload_lower in event.content.lower():
                 add(EvidenceSource.RETRIEVAL_EVENT, event.id, event.content,
                     f"retrieval_events[{i}]", "Attacker payload observed in retrieved content.",
                     "suspicious_retrieval_content", False)
 
         for i, message in enumerate(attack_trace.inter_agent_messages):
-            if payload and payload in message.content:
+            if payload and payload_lower in message.content.lower():
                 add(EvidenceSource.INTER_AGENT_MESSAGE, message.id, message.content,
                     f"inter_agent_messages[{i}]", "Attacker payload observed in inter-agent message.",
                     "suspicious_inter_agent_message", False)

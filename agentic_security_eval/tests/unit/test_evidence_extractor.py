@@ -4,8 +4,10 @@ from agentic_security_eval.core.enums import ASICategory, AttackSurface, Evidenc
 from agentic_security_eval.core.models import (
     AgentTrace,
     AttackCase,
+    InterAgentMessage,
     MemoryEvent,
     Message,
+    RetrievalEvent,
     ToolCall,
 )
 from agentic_security_eval.oracle.evidence import EvidenceExtractor
@@ -643,3 +645,38 @@ def test_phase135_downgraded_signals_are_category_gated():
     evidence = _extract(case, trace)
     assert not [e for e in evidence
                 if e.metadata["signal"] in ("attacker_goal_refused", "attacker_goal_accepted")]
+
+
+# --------------------------------------------------------------------------- #
+# Phase 14.0: indirect cross-channel payload matching is case-insensitive
+# --------------------------------------------------------------------------- #
+def test_payload_observed_is_case_insensitive():
+    trace = AgentTrace(
+        target_id="t", run_id="r",
+        messages=[Message(id="m1", role="user", content=PAYLOAD.upper())],
+        final_output="ok",
+    )
+    evidence = _extract(_case(ASICategory.ASI01, AttackSurface.USER_PROMPT), trace)
+    assert [e for e in evidence if e.metadata["signal"] == "payload_observed"]
+
+
+def test_suspicious_retrieval_content_is_case_insensitive():
+    trace = AgentTrace(
+        target_id="t", run_id="r",
+        retrieval_events=[RetrievalEvent(id="r1", source="web", content=PAYLOAD.upper())],
+        final_output="ok",
+    )
+    evidence = _extract(_case(ASICategory.ASI01, AttackSurface.USER_PROMPT), trace)
+    assert [e for e in evidence if e.metadata["signal"] == "suspicious_retrieval_content"]
+
+
+def test_suspicious_inter_agent_message_is_case_insensitive():
+    trace = AgentTrace(
+        target_id="t", run_id="r",
+        inter_agent_messages=[
+            InterAgentMessage(id="ia1", from_agent="a", to_agent="b", content=PAYLOAD.upper())
+        ],
+        final_output="ok",
+    )
+    evidence = _extract(_case(ASICategory.ASI01, AttackSurface.USER_PROMPT), trace)
+    assert [e for e in evidence if e.metadata["signal"] == "suspicious_inter_agent_message"]

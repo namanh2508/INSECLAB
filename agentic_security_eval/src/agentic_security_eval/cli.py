@@ -18,9 +18,9 @@ from agentic_security_eval.adapters.python_workflow import PythonWorkflowAdapter
 from agentic_security_eval.attacks.generator import AttackGenerator
 from agentic_security_eval.config.loader import load_target_config
 from agentic_security_eval.converters.raw_event_log import load_raw_agent_log, raw_log_to_trace_input
-from agentic_security_eval.core.enums import ASICategory
+from agentic_security_eval.core.enums import ASICategory, Severity
 from agentic_security_eval.core.errors import AgenticSecurityEvalError, ConfigError, ReportError
-from agentic_security_eval.core.models import TargetConfig
+from agentic_security_eval.core.models import EvalReport, TargetConfig
 from agentic_security_eval.evaluator.runner import EvaluatorRunner
 from agentic_security_eval.evaluator.trace_runner import TraceEvaluationRunner
 from agentic_security_eval.oracle.fake_judge import FakeJudgeProvider
@@ -34,6 +34,10 @@ DEFAULT_JUDGE_PROVIDER = "fake"
 DEFAULT_JUDGE_BASE_URL = "https://api.openai.com/v1"
 DEFAULT_JUDGE_API_KEY_ENV = "OPENAI_API_KEY"
 DEFAULT_JUDGE_RESPONSE_FORMAT = "json_object"
+FAIL_ON_EXIT_CODE = 3
+_FAIL_ON_CHOICES = ("medium", "high", "critical")
+# Severity declaration order in the enum is low->high; rank by position.
+_SEVERITY_RANK = {severity: rank for rank, severity in enumerate(Severity)}
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -70,6 +74,7 @@ def _build_parser() -> argparse.ArgumentParser:
         help="Optional cap on the number of attack cases.",
     )
     _add_judge_options(eval_parser)
+    _add_fail_on(eval_parser)
 
     trace_parser = subparsers.add_parser(
         "eval-trace", help="Evaluate a pre-recorded TraceEvaluationInput JSON bundle."
@@ -77,6 +82,7 @@ def _build_parser() -> argparse.ArgumentParser:
     trace_parser.add_argument("--input", required=True, help="Path to a trace bundle JSON.")
     trace_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
     _add_judge_options(trace_parser)
+    _add_fail_on(trace_parser)
 
     convert_parser = subparsers.add_parser(
         "convert-trace", help="Convert a raw agent log into a TraceEvaluationInput bundle."
@@ -90,6 +96,7 @@ def _build_parser() -> argparse.ArgumentParser:
     raw_eval_parser.add_argument("--input", required=True, help="Path to a raw agent log JSON.")
     raw_eval_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
     _add_judge_options(raw_eval_parser)
+    _add_fail_on(raw_eval_parser)
 
     return parser
 
@@ -112,7 +119,7 @@ def _run_eval(args: argparse.Namespace) -> int:
 
     output_path = JsonReportWriter().write(report, args.output)
     print(f"Wrote report to {output_path}: {report.total_cases} cases, {report.total_findings} findings.")
-    return 0
+    return _fail_on_exit(report, args.fail_on)
 
 
 def _run_eval_trace(args: argparse.Namespace) -> int:
@@ -126,7 +133,7 @@ def _run_eval_trace(args: argparse.Namespace) -> int:
 
     output_path = JsonReportWriter().write(report, args.output)
     print(f"Wrote report to {output_path}: {report.total_cases} cases, {report.total_findings} findings.")
-    return 0
+    return _fail_on_exit(report, args.fail_on)
 
 
 def _run_convert_trace(args: argparse.Namespace) -> int:
@@ -156,7 +163,7 @@ def _run_eval_raw_trace(args: argparse.Namespace) -> int:
 
     output_path = JsonReportWriter().write(report, args.output)
     print(f"Wrote report to {output_path}: {report.total_cases} cases, {report.total_findings} findings.")
-    return 0
+    return _fail_on_exit(report, args.fail_on)
 
 
 def _add_judge_options(parser: argparse.ArgumentParser) -> None:
@@ -181,6 +188,34 @@ def _add_judge_options(parser: argparse.ArgumentParser) -> None:
         default=DEFAULT_JUDGE_RESPONSE_FORMAT,
         help="Response format mode: none, json_object, or json_schema (default: json_object).",
     )
+
+
+def _add_fail_on(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--fail-on",
+        choices=_FAIL_ON_CHOICES,
+        default=None,
+        help="Exit with code 3 if any finding is at or above this severity (medium|high|critical).",
+    )
+
+
+def _fail_on_exit(report: EvalReport, fail_on: str | None) -> int:
+    """Return 0, or FAIL_ON_EXIT_CODE if a finding meets the --fail-on threshold.
+
+    The report has already been written by the caller; this only decides the exit
+    code. Parser/config/runtime errors are handled elsewhere and are unaffected.
+    """
+    if not fail_on:
+        return 0
+    threshold = _SEVERITY_RANK[Severity(fail_on)]
+    triggering = [f for f in report.findings if _SEVERITY_RANK[f.severity] >= threshold]
+    if triggering:
+        print(
+            f"error: {len(triggering)} finding(s) at or above severity '{fail_on}' (--fail-on).",
+            file=sys.stderr,
+        )
+        return FAIL_ON_EXIT_CODE
+    return 0
 
 
 def _build_judge_provider(args: argparse.Namespace) -> JudgeProvider:
