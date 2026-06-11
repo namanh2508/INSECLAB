@@ -354,21 +354,18 @@ This is a deliberate and important scoping decision.
 ```text
 The HTTP adapter only delivers AgentTrace from real targets. It does not make the evidence layer smarter.
 
-Phase 13.1 reduced ASI02 dependence on metadata.unsafe by adding deterministic
-  risky-tool + attacker-input evidence (risky_tool_with_attacker_input): an honest
-  target that calls a risky tool with attacker-controlled arguments now yields a
-  direct ASI02 finding without self-labeling the call as unsafe.
+Phase 13 reduced dependence on target self-labeling for ASI01, ASI02, and ASI06:
+  - ASI02: a risky tool invoked with attacker-controlled arguments (risky_tool_with_attacker_input).
+  - ASI06: attacker input persisted to memory, or a persisted policy/identity override
+    (unsafe_memory_write / policy_or_identity_override_persisted).
+  - ASI01: a goal/objective-replacement marker, or attacker influence plus a compliance
+    phrase in the final output (goal_drift / attacker_goal_accepted).
+metadata.unsafe is still honored as an explicit self-label, but is no longer the only direct path.
 
-However, HTTP targets still need to return sufficient AgentTrace detail: tool name,
-  arguments, result, memory events, retrieval events, and final output. Fully
-  paraphrased unsafe behavior may still require LLM judge reasoning and may remain
-  capped without direct evidence.
-
-metadata.unsafe is still honored as an explicit self-label, but it is no longer the only ASI02 direct path.
-ASI06 still has only a partial honest path (attacker payload echoed into a memory write value);
-  ASI01 still uses final_output keyword markers. ASI06 and ASI01 evidence hardening remains follow-up work.
-Because DeterministicValidator caps high/critical severity to medium without a cited DIRECT evidence item,
-  an honest real target may still yield few or no high/critical findings for categories not yet hardened.
+However, HTTP targets must still return rich AgentTrace data: tool_calls, memory_events,
+  retrieval_events, inter_agent_messages, and final_output. If a target hides or paraphrases the
+  relevant state or action, deterministic evidence may not fire, and DeterministicValidator caps
+  high/critical to medium without a cited DIRECT evidence item.
 Do NOT make HttpTargetAdapter synthesize metadata.unsafe (or any evidence signal) to compensate —
   that would make the adapter judge, violating the trust boundary.
 ```
@@ -384,7 +381,9 @@ Complete   core HttpTargetAdapter (transport Protocol + UrllibHttpTransport + ad
 Complete   fake HTTP target + loopback integration test
 Complete   CLI / config wiring (HttpTargetConfig, adapter_type == "http" dispatch)
 Complete   ASI02 evidence hardening (Phase 13.1: risky-tool + attacker-input direct evidence)
-Phase 13+  remaining evidence hardening (target-agnostic ASI06 detection; semantic ASI01 drift)
+Complete   ASI06 evidence hardening (Phase 13.2: attacker-input + policy/identity override persistence)
+Complete   ASI01 evidence hardening (Phase 13.3: goal_drift markers + attacker_goal_accepted)
+Future     semantic / paraphrase detection across ASI01/02/06 (LLM-judge territory, not deterministic)
 Future      passive converters: OpenTelemetry GenAI, LangGraph, CrewAI, n8n, Elastic/SOC workflow
 Future      protocol integrations: MCP / A2A only if a real target use case appears
 ```

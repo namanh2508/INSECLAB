@@ -30,6 +30,11 @@ These hold after the Phase 13.1 ASI02 hardening and must not be weakened:
 
 - All direct evidence signals are **category-gated inside `EvidenceExtractor`**.
   The extractor is the single owner of which direct signals exist per category.
+- Category-specific rules live in `oracle/evidence_rules/` and return an
+  `EvidenceCandidate | None`. Rule modules must not assign Evidence IDs, must not
+  construct `Evidence`/`Finding`/`JudgeDecision`, and must not inspect
+  `attack_case.category`. `EvidenceExtractor` is the facade that owns channel
+  iteration, category-gating, Evidence construction, and stable ID assignment.
 - `FakeJudgeProvider` may treat *any* direct evidence as sufficient for a
   vulnerable verdict **only because** `EvidenceExtractor` owns category-gating.
   It is signal-name-agnostic by design; do not re-introduce per-name coupling.

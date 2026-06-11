@@ -22,11 +22,6 @@ from agentic_security_eval.oracle.evidence_rules.asi02_tool_misuse import classi
 from agentic_security_eval.oracle.evidence_rules.asi06_memory_poisoning import classify_asi06_memory_event
 from agentic_security_eval.oracle.evidence_rules.common import salient_tokens
 
-# Backwards-compatible re-export: ``salient_tokens`` moved to
-# ``evidence_rules.common`` in Phase 13.2.2; existing imports of
-# ``_salient_tokens`` from this module keep working (same function object).
-_salient_tokens = salient_tokens
-
 _SNIPPET_LIMIT = 240
 
 
