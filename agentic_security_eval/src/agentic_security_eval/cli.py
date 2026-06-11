@@ -107,15 +107,17 @@ def _build_parser() -> argparse.ArgumentParser:
     _add_fail_on(batch_parser)
 
     convert_parser = subparsers.add_parser(
-        "convert-trace", help="Convert a raw agent log into a TraceEvaluationInput bundle."
+        "convert-trace",
+        help="Convert a Generic Agent Event Log (RawAgentLog) into a TraceEvaluationInput bundle.",
     )
-    convert_parser.add_argument("--input", required=True, help="Path to a raw agent log JSON.")
+    convert_parser.add_argument("--input", required=True, help="Path to a Generic Agent Event Log JSON.")
     convert_parser.add_argument("--output", required=True, help="Path to write the trace bundle JSON.")
 
     raw_eval_parser = subparsers.add_parser(
-        "eval-raw-trace", help="Convert a raw agent log and evaluate it in one step."
+        "eval-raw-trace",
+        help="Convert a Generic Agent Event Log (RawAgentLog) and evaluate it in one step.",
     )
-    raw_eval_parser.add_argument("--input", required=True, help="Path to a raw agent log JSON.")
+    raw_eval_parser.add_argument("--input", required=True, help="Path to a Generic Agent Event Log JSON.")
     raw_eval_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
     _add_judge_options(raw_eval_parser)
     _add_fail_on(raw_eval_parser)

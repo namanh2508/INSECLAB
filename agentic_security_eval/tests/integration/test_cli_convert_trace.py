@@ -57,3 +57,22 @@ def test_eval_raw_trace_hardened_produces_zero_findings(tmp_path):
     assert rc == 0
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["total_findings"] == 0
+
+
+def test_convert_then_eval_traces_round_trip(tmp_path):
+    # Generic Agent Event Logs -> convert-trace -> bundles in a dir -> eval-traces.
+    traces_dir = tmp_path / "traces"
+    traces_dir.mkdir()
+    for src, bundle in [
+        ("asi02_tool_misuse_raw_log.json", "asi02.json"),
+        ("asi06_memory_poisoning_raw_log.json", "asi06.json"),
+    ]:
+        assert main(["convert-trace", "--input", str(RAW / src), "--output", str(traces_dir / bundle)]) == 0
+
+    report = tmp_path / "batch.json"
+    assert main(["eval-traces", "--input-dir", str(traces_dir), "--output", str(report)]) == 0
+
+    data = json.loads(report.read_text(encoding="utf-8"))
+    assert data["total_files"] == 2
+    assert data["total_findings"] == 2  # ASI02 high + ASI06 critical
+    assert set(data["category_distribution"]) == {"ASI02", "ASI06"}

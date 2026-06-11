@@ -1,17 +1,24 @@
-"""Generic raw agent-log schema and converter to TraceEvaluationInput.
+"""The Generic Agent Event Log (``RawAgentLog``) and its converter.
 
-A ``RawAgentLog`` is a convenience format: a flat list of typed ``RawEvent``s plus
-the ``AttackCase`` under test. It saves users from hand-writing a full
-``TraceEvaluationInput`` bundle. Loading is a boundary — bad file / JSON /
-schema / event type fails fast with ``ConfigError``. This is intentionally
-generic; real framework converters should target the same output shape.
+``RawAgentLog`` is the framework-neutral **passive ingestion bridge**: a flat list
+of typed ``RawEvent``s plus the ``AttackCase`` under test, normalized into the
+canonical ``TraceEvaluationInput`` so a recorded run can be audited offline without
+hand-writing a full bundle. Loading is a boundary — bad file / JSON / schema /
+version / event type fails fast with ``ConfigError``.
+
+The converter **normalizes only**: it maps events 1:1 into ``AgentTrace`` channels,
+assigns deterministic element ids, and copies event metadata verbatim. It never
+judges, never synthesizes ``metadata.unsafe`` or any evidence signal, never executes
+tools, and never fetches URLs. Framework-specific converters (LangGraph, CrewAI,
+n8n, Elastic, ...) should target this same shape — ``RawAgentLog`` or
+``TraceEvaluationInput`` directly. See ``docs/generic_event_log.md``.
 """
 
 import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationError, model_validator
+from pydantic import BaseModel, Field, ValidationError, field_validator, model_validator
 
 from agentic_security_eval.core.errors import ConfigError
 from agentic_security_eval.core.models import (
@@ -67,15 +74,27 @@ class RawEvent(BaseModel):
         return self
 
 
-class RawAgentLog(BaseModel):
-    """A simple raw agent log: metadata, the attack case, and a list of events."""
+_SUPPORTED_SCHEMA_VERSIONS = frozenset({"0.1"})
 
+
+class RawAgentLog(BaseModel):
+    """The Generic Agent Event Log: schema version, attack case, and a list of events."""
+
+    schema_version: str = "0.1"
     target_id: str
     run_id: str
     scenario_id: str | None = None
     attack_case: AttackCase
     events: list[RawEvent] = Field(min_length=1)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+    @field_validator("schema_version")
+    @classmethod
+    def _check_schema_version(cls, value: str) -> str:
+        if value not in _SUPPORTED_SCHEMA_VERSIONS:
+            supported = ", ".join(sorted(_SUPPORTED_SCHEMA_VERSIONS))
+            raise ValueError(f"unsupported schema_version {value!r}; supported: {supported}.")
+        return value
 
 
 def load_raw_agent_log(path: str | Path) -> RawAgentLog:

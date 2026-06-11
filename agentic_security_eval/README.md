@@ -315,11 +315,13 @@ set +a
 uv run pytest tests/live -q
 ```
 
-### Raw log conversion (`convert-trace`, `eval-raw-trace`)
+### Generic Agent Event Log (`convert-trace`, `eval-raw-trace`)
 
-Writing a full `TraceEvaluationInput` bundle by hand is tedious. A simpler
-`RawAgentLog` (a flat list of typed events plus the `AttackCase`) can be
-converted into a bundle, so users avoid hand-authoring traces for simple cases:
+The **Generic Agent Event Log** (`RawAgentLog`) is the framework-neutral passive
+ingestion bridge: a flat list of typed events plus the `AttackCase`, converted into a
+`TraceEvaluationInput` bundle so a recorded run can be audited offline without
+hand-writing a full bundle. `convert-trace` converts a Generic Agent Event Log into a
+bundle:
 
 ```bash
 cd agentic_security_eval
@@ -343,9 +345,12 @@ uv run agentic-sec-eval eval-raw-trace \
   --output reports/asi02_raw_report.json
 ```
 
-The generic converter is framework-neutral; framework-specific converters
-(LangGraph/CrewAI/n8n/Elastic) should follow the same target schema (see
-[docs/trace_schema.md](docs/trace_schema.md)).
+The full event-log contract — event types, the `schema_version` policy, and the
+ordering/ID/error/tool-call/trust rules — is in
+[docs/generic_event_log.md](docs/generic_event_log.md). Converted bundles can also be
+batch-evaluated with `eval-traces`. Framework-specific converters
+(LangGraph/CrewAI/n8n/Elastic) are future work and should target `RawAgentLog` or
+`TraceEvaluationInput` directly — never a new schema.
 
 ## Testing
 

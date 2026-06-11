@@ -42,7 +42,9 @@ Where future work lands (so the tree stays predictable):
   is implemented; see "Batch evaluation and reporting" below)
 - HTML reports -> `reporting/` (render the existing `EvalReport` / `BatchReport`)
 - framework converters (LangGraph, n8n, Elastic/SOAR) -> `converters/`, each
-  emitting `AgentTrace` or `RawAgentLog` (never a new schema)
+  emitting `RawAgentLog` (the Generic Agent Event Log bridge — see
+  [`generic_event_log.md`](generic_event_log.md)) or `TraceEvaluationInput`
+  directly, never a new schema and never `AgentTrace` alone
 - retrieval / inter-agent direct evidence -> a new `oracle/evidence_rules/` module
   plus a category-gated call in `EvidenceExtractor`
 - baseline / differential analysis -> `evaluator/` (the baseline is captured today
@@ -57,7 +59,8 @@ path normalizes into it before any evaluation logic runs, so the evaluator never
 depends on a specific agent framework. Two ingestion contracts feed it:
 
 - `TraceEvaluationInput` — the canonical offline bundle (`eval-trace`).
-- `RawAgentLog` — a convenience flat event list converted into the bundle.
+- `RawAgentLog` — the Generic Agent Event Log: a framework-neutral flat event list
+  converted into the bundle (see [`generic_event_log.md`](generic_event_log.md)).
 
 ## Adapter boundary
 

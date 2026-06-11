@@ -137,23 +137,23 @@ target that omits `metadata.unsafe` and still yields an **ASI02 / high** finding
 - All trace content — payloads, tool outputs, memory values, messages — is
   treated as **untrusted data**.
 
-## Raw event log converter
+## Generic Agent Event Log (`RawAgentLog`)
 
-`TraceEvaluationInput` is the **canonical ingestion contract**. `RawAgentLog` is
-a lighter **convenience fixture format**: a flat list of typed events plus the
-`AttackCase`, which the tool converts into a `TraceEvaluationInput` (so users do
-not have to hand-write a full bundle for simple cases).
+`TraceEvaluationInput` is the **canonical ingestion contract**. The **Generic Agent
+Event Log** (`RawAgentLog`) is the framework-neutral **passive ingestion bridge** to
+it: a flat list of typed events plus the `AttackCase`, normalized into a
+`TraceEvaluationInput` so a recorded run can be audited offline without hand-writing a
+full bundle. Convert with `agentic-sec-eval convert-trace`, or evaluate in one step
+with `eval-raw-trace`; converted bundles can be batch-evaluated with `eval-traces`.
 
-- Framework-specific converters (LangGraph, CrewAI, n8n, Elastic, ...) should map
-  their raw events into `TraceEvaluationInput` — directly, or via a `RawAgentLog`.
-- The generic raw log converter is **not** a full LangGraph/CrewAI/n8n converter;
-  it is a framework-neutral reference for normalizing raw agent events into the
-  evaluator schema.
+Event types: `message`, `tool_call`, `memory_event`, `retrieval_event`,
+`inter_agent_message`, `final_output`, `error`. Input order is authoritative, element
+IDs are unique across channels (explicit preserved, missing generated
+deterministically, duplicates rejected), malformed input fails fast, and the
+converter **normalizes only** — it never synthesizes evidence or `metadata.unsafe`.
 
-Raw event types: `message`, `tool_call`, `memory_event`, `retrieval_event`,
-`inter_agent_message`, `final_output`, `error`. Convert with
-`agentic-sec-eval convert-trace`, or evaluate in one step with `eval-raw-trace`.
-
-Trace element IDs must be globally unique across all id-bearing trace channels
-within a trace. Explicit IDs are preserved. Missing IDs are generated
-deterministically without colliding with explicit IDs.
+The full contract — fields, per-type requirements, the `schema_version` policy, and
+the ordering/ID/error/tool-call/trust rules — is in
+[`generic_event_log.md`](generic_event_log.md). Framework-specific converters
+(LangGraph, CrewAI, n8n, Elastic, ...) are separate future work and should target
+`RawAgentLog` or `TraceEvaluationInput` directly — never a new schema.

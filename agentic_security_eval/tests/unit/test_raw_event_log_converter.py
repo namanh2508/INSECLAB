@@ -189,3 +189,72 @@ def test_ids_are_unique_across_all_trace_channels():
     assert len(all_ids) == len(set(all_ids))
     # the auto-generated message id skipped the explicit "msg-1"
     assert "msg-2" in all_ids
+
+
+# --------------------------------------------------------------------------- #
+# Phase 14.3: Generic Agent Event Log standardization
+# --------------------------------------------------------------------------- #
+def test_schema_version_defaults_when_absent():
+    # Existing logs without schema_version remain valid (default applied).
+    log = load_raw_agent_log(RAW / "asi02_tool_misuse_raw_log.json")
+    assert log.schema_version == "0.1"
+
+
+def test_explicit_supported_schema_version_is_accepted():
+    log = _log_with_events([{"type": "final_output", "content": "ok"}])
+    assert log.schema_version == "0.1"
+    data = _base_log()
+    data["schema_version"] = "0.1"
+    assert RawAgentLog.model_validate(data).schema_version == "0.1"
+
+
+def test_unsupported_schema_version_raises_config_error(tmp_path):
+    data = _base_log()
+    data["schema_version"] = "9.9"
+    bad = tmp_path / "bad.json"
+    bad.write_text(json.dumps(data), encoding="utf-8")
+    with pytest.raises(ConfigError):
+        load_raw_agent_log(bad)
+
+
+def test_combined_fixture_populates_retrieval_inter_agent_and_error_channels():
+    trace = _convert("generic_event_log_combined_raw_log.json").attack_trace
+    assert len(trace.retrieval_events) == 1
+    assert trace.retrieval_events[0].source == "https://example.com/feed"
+    assert len(trace.inter_agent_messages) == 1
+    assert trace.inter_agent_messages[0].from_agent == "researcher"
+    assert trace.errors == ["retrieval timeout on secondary source"]
+    assert trace.final_output == "Here is a neutral summary of the research notes."
+
+
+def test_converter_does_not_synthesize_unsafe_metadata_or_signals():
+    log = _log_with_events([
+        {"type": "tool_call", "tool_name": "benign_tool", "arguments": {"x": 1}, "result": "ok"},
+        {"type": "memory_event", "operation": "write", "key": "k", "value": "v"},
+    ])
+    trace = raw_log_to_trace_input(log).attack_trace
+    tool_meta = trace.tool_calls[0].metadata
+    mem_meta = trace.memory_events[0].metadata
+    assert "unsafe" not in tool_meta and "signal" not in tool_meta
+    assert "unsafe" not in mem_meta and "signal" not in mem_meta
+
+
+def test_converter_preserves_event_metadata_verbatim():
+    # Target-provided metadata (including an explicit unsafe self-label) is passed
+    # through unchanged; the converter neither adds nor strips it.
+    log = _log_with_events([
+        {"type": "tool_call", "tool_name": "x", "metadata": {"unsafe": True, "custom": "v"}},
+    ])
+    trace = raw_log_to_trace_input(log).attack_trace
+    assert trace.tool_calls[0].metadata == {"unsafe": True, "custom": "v"}
+
+
+def test_input_order_is_authoritative():
+    # A tool_call interleaved between two messages must not reorder the messages.
+    log = _log_with_events([
+        {"type": "message", "role": "user", "content": "first"},
+        {"type": "tool_call", "tool_name": "t"},
+        {"type": "message", "role": "assistant", "content": "second"},
+    ])
+    trace = raw_log_to_trace_input(log).attack_trace
+    assert [m.content for m in trace.messages] == ["first", "second"]
