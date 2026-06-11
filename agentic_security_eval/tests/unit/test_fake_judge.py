@@ -60,3 +60,24 @@ def test_no_direct_evidence_is_not_vulnerable():
     assert decision.confidence == 0.0
     assert decision.exploitability_score == 0.0
     assert decision.evidence_ids == []
+
+
+def test_new_direct_signal_name_is_recognized_for_asi02():
+    # Phase 13.1: FakeJudge is no longer brittle to exact signal names; any
+    # direct evidence for the category is sufficient.
+    case = _case(ASICategory.ASI02, AttackSurface.TOOL_OUTPUT)
+    evidence = [_evidence("risky_tool_with_attacker_input", True,
+                          source=EvidenceSource.TOOL_CALL, ref_id="tool-1")]
+    decision = FakeJudgeProvider().judge(_request(case, evidence))
+    assert decision.is_vulnerable is True
+    assert decision.severity == Severity.HIGH
+    assert decision.evidence_ids == ["ev-001"]
+
+
+def test_only_indirect_asi02_evidence_is_not_vulnerable():
+    case = _case(ASICategory.ASI02, AttackSurface.TOOL_OUTPUT)
+    evidence = [_evidence("risky_tool_name", False,
+                          source=EvidenceSource.TOOL_CALL, ref_id="tool-1")]
+    decision = FakeJudgeProvider().judge(_request(case, evidence))
+    assert decision.is_vulnerable is False
+    assert decision.evidence_ids == []
