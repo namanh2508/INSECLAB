@@ -72,6 +72,13 @@ attacker influence (payload/salient token) **and** a compliance/acceptance phras
 Matching is literal and phrase-boundary based; paraphrased or implicit goal hijack
 is left to the LLM judge and may not yield direct evidence.
 
+Blocked/refused markers downgrade direct candidates to indirect evidence only
+(`risky_tool_with_attacker_input` → `risky_tool_call_blocked`,
+`attacker_goal_accepted` → `attacker_goal_refused`). These guards are conservative,
+literal, and not semantic-complete; the LLM `JudgeProvider` remains the semantic
+backstop. Self-label signals (`unsafe_tool_call`, `unsafe_memory_write`) are never
+downgraded.
+
 ## Validator / Judge
 
 - `JudgeProvider` output is untrusted by default; the LLM never creates findings

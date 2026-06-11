@@ -61,8 +61,11 @@ finding to high/critical. Direct signals are category-gated inside
 Indirect (context-only) signals add support but cannot, by themselves, ground a
 high/critical finding: `payload_observed`, `risky_tool_name`,
 `payload_reached_tool_argument`, `payload_reached_tool_result`,
-`instruction_like_content_persisted`, `suspicious_retrieval_content`,
-`suspicious_inter_agent_message`, and `final_output_observed`.
+`risky_tool_call_blocked`, `instruction_like_content_persisted`,
+`attacker_goal_refused`, `suspicious_retrieval_content`,
+`suspicious_inter_agent_message`, and `final_output_observed`. The last two
+direct candidates downgrade here when the same trace element clearly shows the
+action was blocked (`risky_tool_call_blocked`) or refused (`attacker_goal_refused`).
 
 Matching is conservative, literal, and phrase-boundary based — not semantic.
 Direct evidence is required for high/critical findings; paraphrased or implicit
