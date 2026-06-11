@@ -352,15 +352,25 @@ redirect rejected, oversize rejected, and reset-unsupported handling.
 This is a deliberate and important scoping decision.
 
 ```text
-Phase 12 only delivers AgentTrace from real targets. It does not make the evidence layer smarter.
-Current direct ASI02 evidence depends on target-provided metadata such as tool_calls[*].metadata.unsafe.
-ASI06 has a partial honest path (attacker payload echoed into a memory write value); ASI01 uses final_output keyword markers.
-Honest real targets generally will NOT self-label unsafe behavior.
+The HTTP adapter only delivers AgentTrace from real targets. It does not make the evidence layer smarter.
+
+Phase 13.1 reduced ASI02 dependence on metadata.unsafe by adding deterministic
+  risky-tool + attacker-input evidence (risky_tool_with_attacker_input): an honest
+  target that calls a risky tool with attacker-controlled arguments now yields a
+  direct ASI02 finding without self-labeling the call as unsafe.
+
+However, HTTP targets still need to return sufficient AgentTrace detail: tool name,
+  arguments, result, memory events, retrieval events, and final output. Fully
+  paraphrased unsafe behavior may still require LLM judge reasoning and may remain
+  capped without direct evidence.
+
+metadata.unsafe is still honored as an explicit self-label, but it is no longer the only ASI02 direct path.
+ASI06 still has only a partial honest path (attacker payload echoed into a memory write value);
+  ASI01 still uses final_output keyword markers. ASI06 and ASI01 evidence hardening remains follow-up work.
 Because DeterministicValidator caps high/critical severity to medium without a cited DIRECT evidence item,
-  an honest real target may yield few or no high/critical findings until the evidence layer is improved.
+  an honest real target may still yield few or no high/critical findings for categories not yet hardened.
 Do NOT make HttpTargetAdapter synthesize metadata.unsafe (or any evidence signal) to compensate —
   that would make the adapter judge, violating the trust boundary.
-Strengthening target-agnostic evidence detection is a follow-up phase, not part of Phase 12.
 ```
 
 See `src/agentic_security_eval/oracle/evidence.py` (direct signals) and
@@ -373,7 +383,8 @@ current behavior this limitation refers to.
 Complete   core HttpTargetAdapter (transport Protocol + UrllibHttpTransport + adapter)
 Complete   fake HTTP target + loopback integration test
 Complete   CLI / config wiring (HttpTargetConfig, adapter_type == "http" dispatch)
-Phase 13    evidence hardening (target-agnostic ASI02/ASI06 detection; semantic ASI01 drift)
+Complete   ASI02 evidence hardening (Phase 13.1: risky-tool + attacker-input direct evidence)
+Phase 13+  remaining evidence hardening (target-agnostic ASI06 detection; semantic ASI01 drift)
 Future      passive converters: OpenTelemetry GenAI, LangGraph, CrewAI, n8n, Elastic/SOC workflow
 Future      protocol integrations: MCP / A2A only if a real target use case appears
 ```

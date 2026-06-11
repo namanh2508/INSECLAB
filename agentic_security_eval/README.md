@@ -17,6 +17,11 @@ Key properties:
 - **Evidence-grounded** — a `Finding` is produced only when it is anchored in
   ID-grounded `Evidence` extracted from the trace. The LLM judge is never the
   sole source of truth; a deterministic validator gates every decision.
+- **Deterministic ASI02 evidence for honest targets** — when attacker-controlled
+  input reaches a risky tool's arguments, the evaluator emits direct ASI02 evidence
+  even if the target does not self-label the call (`metadata.unsafe` is supported
+  but not required). It does not catch cases where the agent paraphrases away or
+  hides the attacker-controlled input.
 - **JSON report first** — JSON is the primary output (Markdown/HTML later).
 - **Offline by default** — the MVP ships a deterministic `FakeJudgeProvider`, so
   the whole pipeline (and the full test suite) runs offline with no API keys.
