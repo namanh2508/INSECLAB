@@ -135,6 +135,11 @@ Current input modes:
 - `convert-trace` for raw event log conversion.
 - `eval-raw-trace` for raw event log conversion plus evaluation.
 
+Run `agentic-sec-eval coverage` (add `--format json`) to print the
+surface-to-evidence coverage matrix — which generated attack surfaces the
+deterministic evidence layer currently evaluates as `direct`, `indirect`, or
+`generation_only`. See [docs/architecture.md](docs/architecture.md#surface-coverage-and-evidence-depth).
+
 From inside the package directory:
 
 ```bash

@@ -103,3 +103,24 @@ def test_convert_trace_rejects_fail_on(tmp_path):
             "--output", str(tmp_path / "bundle.json"),
             "--fail-on", "high",
         ])
+
+
+# --------------------------------------------------------------------------- #
+# Phase 14.1: coverage command (offline, no target/judge)
+# --------------------------------------------------------------------------- #
+def test_coverage_command_returns_zero_and_shows_levels(capsys):
+    rc = main(["coverage"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "direct" in out
+    assert "indirect" in out
+    assert "generation_only" in out
+
+
+def test_coverage_command_json_is_parseable(capsys):
+    rc = main(["coverage", "--format", "json"])
+    assert rc == 0
+    data = json.loads(capsys.readouterr().out)
+    assert data["entries"]
+    levels = {entry["level"] for entry in data["entries"]}
+    assert "direct" in levels and "indirect" in levels

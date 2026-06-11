@@ -9,6 +9,7 @@ reported as a short stderr message and a non-zero exit code — no tracebacks.
 """
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
@@ -27,6 +28,7 @@ from agentic_security_eval.oracle.fake_judge import FakeJudgeProvider
 from agentic_security_eval.oracle.judge import JudgeProvider
 from agentic_security_eval.oracle.openai_compatible_judge import OpenAICompatibleJudgeProvider
 from agentic_security_eval.reporting.json_report import JsonReportWriter
+from agentic_security_eval.surfaces.coverage import coverage_matrix_as_dict, list_surface_coverage
 from agentic_security_eval.trace_io.loader import load_trace_evaluation_input
 
 DEFAULT_CATEGORIES = "ASI01,ASI02,ASI06"
@@ -50,6 +52,7 @@ def main(argv: list[str] | None = None) -> int:
         "eval-trace": _run_eval_trace,
         "convert-trace": _run_convert_trace,
         "eval-raw-trace": _run_eval_raw_trace,
+        "coverage": _run_coverage,
     }
     try:
         return handlers[args.command](args)
@@ -97,6 +100,15 @@ def _build_parser() -> argparse.ArgumentParser:
     raw_eval_parser.add_argument("--output", required=True, help="Path to write the JSON report.")
     _add_judge_options(raw_eval_parser)
     _add_fail_on(raw_eval_parser)
+
+    coverage_parser = subparsers.add_parser(
+        "coverage",
+        help="Print the surface-to-evidence coverage matrix (offline; no target/judge).",
+    )
+    coverage_parser.add_argument(
+        "--format", choices=("table", "json"), default="table",
+        help="Output format (default: table).",
+    )
 
     return parser
 
@@ -164,6 +176,21 @@ def _run_eval_raw_trace(args: argparse.Namespace) -> int:
     output_path = JsonReportWriter().write(report, args.output)
     print(f"Wrote report to {output_path}: {report.total_cases} cases, {report.total_findings} findings.")
     return _fail_on_exit(report, args.fail_on)
+
+
+def _run_coverage(args: argparse.Namespace) -> int:
+    """Print the surface-to-evidence coverage matrix. Offline; no target/judge/network."""
+    if args.format == "json":
+        print(json.dumps(coverage_matrix_as_dict(), indent=2))
+        return 0
+
+    header = f"{'CATEGORY':<8}  {'SURFACE':<24}  {'LEVEL':<16}  SIGNALS"
+    print(header)
+    print("-" * len(header))
+    for entry in list_surface_coverage():
+        signals = ", ".join(entry.direct_signals or entry.indirect_signals) or "-"
+        print(f"{entry.category.value:<8}  {entry.surface.value:<24}  {entry.level.value:<16}  {signals}")
+    return 0
 
 
 def _add_judge_options(parser: argparse.ArgumentParser) -> None:

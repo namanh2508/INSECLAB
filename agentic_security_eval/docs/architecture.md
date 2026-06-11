@@ -104,6 +104,33 @@ to medium unless a cited *direct* evidence item is present**. This is the
 load-bearing invariant: because direct evidence is deterministic and
 category-gated, an untrusted judge cannot mint a high/critical finding.
 
+## Surface coverage and evidence depth
+
+Attack **surfaces** (`surfaces/model.py`) are *generated inputs* — where an attack is
+delivered (user prompt, retrieved content, tool output, memory write, ...). Evidence
+**depth** is what the deterministic layer can actually produce for an attack on a
+surface. They are not the same: the generator can emit cases on surfaces the
+deterministic evidence layer does not deeply evaluate yet.
+
+`surfaces/coverage.py` is the single source of truth that records, per
+`(category, surface)`, one of `direct`, `indirect`, `generation_only`, or
+`unsupported`. It is conservative and adds no detector logic: direct evidence is read
+from each category's outcome channel (ASI01 `final_output`, ASI02 `tool_calls`, ASI06
+`memory_events`), so surfaces that only deliver input (retrieval, inter-agent,
+uploaded-file, tool-definition, plugin/skill metadata) are `indirect` or
+`generation_only` — never falsely `direct`.
+
+Inspect the current matrix (offline; no target/judge):
+
+```bash
+uv run agentic-sec-eval coverage              # human-readable table
+uv run agentic-sec-eval coverage --format json
+```
+
+The matrix is the planning map for evidence-depth work (Phase 14.2+): closing a gap
+means turning a `generation_only`/`indirect` surface into `direct` by adding a
+category-gated rule (below) and then updating `coverage.py`.
+
 ## Authoring an evidence rule
 
 1. Create or update `oracle/evidence_rules/<category>.py`.
